@@ -15,15 +15,15 @@ const fmt = (d: Date) => new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Toky
 function Row({ label, value, ok, hint }: { label: string; value?: string | number | null; ok: boolean; hint?: string }) {
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5">
-      <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${ok ? "bg-emerald-400" : "bg-amber-400"}`} />
-      <span className="w-44 shrink-0 text-white/70">{label}</span>
+      <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${ok ? "bg-good-dot" : "bg-warn-dot"}`} />
+      <span className="w-44 shrink-0 text-body">{label}</span>
       {value != null && value !== "" ? (
         <span className="flex min-w-0 items-center gap-2">
-          <code className="min-w-0 break-all text-white/90">{value}</code>
+          <code className="min-w-0 break-all text-ink">{value}</code>
           <CopyButton text={String(value)} label="Copy" />
         </span>
       ) : (
-        <span className="text-white/40">{hint}</span>
+        <span className="text-faint">{hint}</span>
       )}
     </li>
   );
@@ -47,14 +47,14 @@ export default async function DeliveryPage() {
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
       <h1 className="text-xl font-semibold">Delivery</h1>
-      <p className="mt-1 text-sm text-white/60">
+      <p className="mt-1 text-sm text-muted">
         How a download works: the website form → Make.com → Brevo adds the contact and emails the PDF link → the daily sync brings the download back here.
         Guides: <code>docs/MAKE.md</code> and <code>integrations/website/README.md</code>.
       </p>
 
       <section className="mt-6">
         <h2 className="font-semibold">Values for Make.com and the website</h2>
-        <ul className="mt-3 divide-y divide-white/10 rounded-lg border border-white/10 text-sm">
+        <ul className="mt-3 divide-y divide-white/10 card text-sm">
           <Row label="Brevo LIST_ID" value={setup?.listId} ok={Boolean(setup)} hint={`click “Set up Brevo” (creates “${LIST_NAME}”)`} />
           <Row label="Brevo TEMPLATE_ID" value={setup?.templateId} ok={Boolean(setup)} hint="created by “Set up Brevo”" />
           <Row label="PDF base URL" value={base} ok={storage.ok} hint="set SUPABASE_URL (SETUP.md §9)" />
@@ -63,16 +63,16 @@ export default async function DeliveryPage() {
       </section>
 
       <section className="mt-6 grid gap-4 md:grid-cols-2">
-        <div className="rounded-lg border border-white/10 p-4">
+        <div className="card p-4">
           <h2 className="font-semibold">1. Brevo</h2>
-          <p className="mt-1 text-sm text-white/60">Creates the contact fields, the downloads list and the Japanese delivery email template. Safe to run again.</p>
-          {!brevoKey && <p className="mt-2 text-sm text-amber-300">BREVO_API_KEY not set (SETUP.md §7)</p>}
-          {brevoKey && !sender && <p className="mt-2 text-sm text-amber-300">BREVO_SENDER_EMAIL not set: use a sender you verified in Brevo</p>}
+          <p className="mt-1 text-sm text-muted">Creates the contact fields, the downloads list and the Japanese delivery email template. Safe to run again.</p>
+          {!brevoKey && <p className="mt-2 text-sm text-warn">BREVO_API_KEY not set (SETUP.md §7)</p>}
+          {brevoKey && !sender && <p className="mt-2 text-sm text-warn">BREVO_SENDER_EMAIL not set: use a sender you verified in Brevo</p>}
           <div className="mt-3"><SetupBrevo disabled={!brevoKey || !sender} again={Boolean(setup)} /></div>
         </div>
-        <div className="rounded-lg border border-white/10 p-4">
+        <div className="card p-4">
           <h2 className="font-semibold">2. Make.com</h2>
-          <p className="mt-1 text-sm text-white/60">
+          <p className="mt-1 text-sm text-muted">
             Sends one sample submission (test@example.com) to your webhook so Make can learn the fields. In Make, click “Re-determine data structure” first.
           </p>
           <div className="mt-3"><TestMake disabled={!make} /></div>
@@ -81,10 +81,10 @@ export default async function DeliveryPage() {
 
       <section className="mt-8">
         <h2 className="font-semibold">Downloads ({total})</h2>
-        <p className="mt-1 text-sm text-white/50">Imported daily from Brevo’s delivery emails (job: sync-brevo).</p>
-        <div className="mt-3 overflow-x-auto rounded-lg border border-white/10">
+        <p className="mt-1 text-sm text-faint">Imported daily from Brevo’s delivery emails (job: sync-brevo).</p>
+        <div className="mt-3 overflow-x-auto card">
           <table className="w-full min-w-[640px] text-sm">
-            <thead className="text-left text-white/50">
+            <thead className="text-left text-faint">
               <tr>
                 <th className="px-3 py-2 font-normal">When (JST)</th>
                 <th className="px-3 py-2 font-normal">Name / company</th>
@@ -96,14 +96,14 @@ export default async function DeliveryPage() {
             <tbody className="divide-y divide-white/10">
               {subs.map((s, i) => (
                 <tr key={i}>
-                  <td className="whitespace-nowrap px-3 py-2 text-white/60">{fmt(s.received_at)}</td>
-                  <td lang="ja" className="px-3 py-2">{s.name ?? "-"}<span className="text-white/50"> · {s.company ?? "-"}</span></td>
-                  <td className="px-3 py-2 text-white/70">{s.email}</td>
-                  <td lang="ja" className="px-3 py-2 text-white/70">{s.title ?? "-"}</td>
-                  <td className="px-3 py-2 text-white/50">{s.utm?.source ?? "direct"}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-muted">{fmt(s.received_at)}</td>
+                  <td lang="ja" className="px-3 py-2">{s.name ?? "-"}<span className="text-faint"> · {s.company ?? "-"}</span></td>
+                  <td className="px-3 py-2 text-body">{s.email}</td>
+                  <td lang="ja" className="px-3 py-2 text-body">{s.title ?? "-"}</td>
+                  <td className="px-3 py-2 text-faint">{s.utm?.source ?? "direct"}</td>
                 </tr>
               ))}
-              {!subs.length && <tr><td colSpan={5} className="px-3 py-4 text-white/40">No downloads yet.</td></tr>}
+              {!subs.length && <tr><td colSpan={5} className="px-3 py-4 text-faint">No downloads yet.</td></tr>}
             </tbody>
           </table>
         </div>

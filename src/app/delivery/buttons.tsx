@@ -6,10 +6,10 @@ function ActionButton({ act, label, disabled }: { act: () => Promise<State>; lab
   const [state, action, pending] = useActionState(act, null);
   return (
     <form action={action} className="flex flex-wrap items-center gap-3">
-      <button disabled={pending || disabled} className="rounded-md bg-emerald-500/90 px-3 py-1.5 text-sm text-black hover:bg-emerald-400 disabled:opacity-50">
+      <button disabled={pending || disabled} className="rounded-md bg-accent px-3 py-1.5 text-sm text-white hover:bg-accent-ink disabled:opacity-50">
         {pending ? "Working…" : label}
       </button>
-      {state && <span className={`text-sm ${state.ok ? "text-emerald-300" : "text-amber-300"}`}>{state.message}</span>}
+      {state && <span className={`text-sm ${state.ok ? "text-good" : "text-warn"}`}>{state.message}</span>}
     </form>
   );
 }

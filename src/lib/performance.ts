@@ -232,3 +232,100 @@ export async function whatWorked(limit = 8): Promise<string[]> {
     .slice(0, limit)
     .map((r) => `${r.title ?? r.path} — ${r.sessions} sessions, ${r.clicks} search clicks, ${r.leads + r.downloads} leads (28d)`);
 }
+
+// ---------------------------------------------------------------------------
+// Dashboard
+// ---------------------------------------------------------------------------
+
+export type Week = { week: string; sessions: number; published: number };
+
+/**
+ * Site sessions per week (Monday start) for the last `weeks` COMPLETE weeks of data, plus how many
+ * pieces went live each week. The current, unfinished week is left out: a partial week reads as a drop.
+ */
+export async function weeklySessions(weeks = 12): Promise<Week[]> {
+  const end = await dataEnd();
+  const d = new Date(`${end.ga}T00:00:00Z`);
+  const dow = (d.getUTCDay() + 6) % 7; // Mon=0 … Sun=6
+  // Monday of the last week whose Sunday has data.
+  d.setUTCDate(d.getUTCDate() - dow - (dow === 6 ? 0 : 7));
+  const lastMonday = d.toISOString().slice(0, 10);
+  return sql<Week[]>`
+    with w as (
+      select (${lastMonday}::date - 7 * g)::date as week from generate_series(0, ${weeks - 1}) g
+    )
+    select w.week::text as week,
+           coalesce((select sum(sessions) from metrics_daily m
+                     where m.channel = 'website' and m.page_path = ${SITE_PATH} and m.source_medium = ''
+                       and m.date >= w.week and m.date < w.week + 7), 0)::int as sessions,
+           (select count(*) from publications p
+             where p.channel = 'website' and p.status = 'live'
+               and p.published_at >= w.week and p.published_at < w.week + 7)::int as published
+    from w order by w.week`;
+}
+
+/** Impression-weighted average Google position over a period (lower is better). */
+export async function avgPosition(days: number, offsetDays = 0): Promise<number | null> {
+  const end = await dataEnd();
+  const [r] = await sql<{ pos: number | null }[]>`
+    select (sum(position * impressions) / nullif(sum(impressions), 0))::float as pos
+    from search_queries_daily
+    where date > ${end.sc}::date - ${days + offsetDays}::int and date <= ${end.sc}::date - ${offsetDays}::int`;
+  return r.pos;
+}
+
+export type Funnel = { sessions: number; engaged: number; offerViews: number; leads: number };
+
+export async function funnel(days: number): Promise<Funnel> {
+  const end = await dataEnd();
+  const [r] = await sql<{ sessions: number; engaged: number; offer: number }[]>`
+    select coalesce(sum(sessions) filter (where page_path = ${SITE_PATH}), 0)::int as sessions,
+           coalesce(sum(engaged_sessions) filter (where page_path = ${SITE_PATH}), 0)::int as engaged,
+           coalesce(sum(sessions) filter (where page_path in (
+             select p.page_path from publications p join content_items ci on ci.id = p.content_item_id
+             where ci.type = 'lead_magnet' and p.page_path is not null)), 0)::int as offer
+    from metrics_daily
+    where channel = 'website' and source_medium = '' and date > ${end.ga}::date - ${days}::int and date <= ${end.ga}::date`;
+  const t = await siteTotals(days);
+  return { sessions: r.sessions, engaged: r.engaged, offerViews: r.offer, leads: t.leads + t.downloads };
+}
+
+export type ServiceLeads = { service: string; leads: number };
+
+/** Leads (GA4 form fills on our pages + downloads) per Renesis service, last `days` days. */
+export async function leadsByService(days: number): Promise<ServiceLeads[]> {
+  const end = await dataEnd();
+  return sql<ServiceLeads[]>`
+    with piece as (
+      select p.page_path, ci.id as item_id, coalesce(sv.name_ja, 'その他') as service
+      from publications p
+      join content_items ci on ci.id = p.content_item_id
+      left join topics t on t.id = ci.topic_id
+      left join services sv on sv.id = t.service_id
+      where p.channel = 'website'
+    )
+    select service, sum(leads)::int as leads from (
+      select pc.service,
+             coalesce((select sum(m.leads) from metrics_daily m
+                       where m.channel = 'website' and m.source_medium = '' and m.page_path = pc.page_path
+                         and m.date > ${end.ga}::date - ${days}::int), 0)
+             + (select count(*) from form_submissions fs
+                where fs.content_item_id = pc.item_id and fs.received_at > now() - make_interval(days => ${days})) as leads
+      from piece pc
+    ) x
+    group by service having sum(leads) > 0 order by 2 desc`;
+}
+
+export type Engine = { publishedThisMonth: number; avgReview: number | null; refreshDue: number; inReview: number };
+
+export async function contentEngine(): Promise<Engine> {
+  const [r] = await sql<Engine[]>`
+    select
+      (select count(*) from publications where status = 'live' and published_at >= date_trunc('month', now()))::int as "publishedThisMonth",
+      (select round(avg((v.review->'ai'->>'overall')::numeric))::int from content_items ci
+         join content_versions v on v.id = ci.current_version_id
+         where v.review->'ai'->>'overall' is not null and v.created_at >= date_trunc('month', now())) as "avgReview",
+      (select count(*) from review_actions where kind = 'refresh' and status = 'open')::int as "refreshDue",
+      (select count(*) from content_items where status in ('in_review', 'needs_revision'))::int as "inReview"`;
+  return r;
+}

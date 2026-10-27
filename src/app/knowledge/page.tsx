@@ -15,16 +15,16 @@ export default async function KnowledgePage() {
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
       <h1 className="text-xl font-semibold">Knowledge</h1>
-      <p className="mt-1 text-sm text-white/60">
+      <p className="mt-1 text-sm text-muted">
         These documents set the quality bar, since there is no human reviewer. Changes apply to new prompt packs and reviews.
       </p>
       <div className="mt-6 space-y-6">
         {DOCS.map((d) => {
           const row = rows.find((r) => r.kind === d.kind);
           return (
-            <section key={d.kind} className="rounded-lg border border-white/10 p-4">
+            <section key={d.kind} className="card p-4">
               <h2 className="font-semibold">{d.title}</h2>
-              <p className="mb-3 text-sm text-white/50">{d.help}</p>
+              <p className="mb-3 text-sm text-faint">{d.help}</p>
               <KnowledgeEditor kind={d.kind} content={row?.content ?? ""} rows={d.rows} />
             </section>
           );

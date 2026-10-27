@@ -1,27 +1,35 @@
 import Link from "next/link";
+import { env, has } from "@/lib/env";
+import {
+  avgPosition, contentEngine, funnel, groupPerformance, LEAD_WEIGHT, leadsByService, MIN_PIECES,
+  pagePerformance, performancePoints, siteTotals, weeklySessions, type Week,
+} from "@/lib/performance";
 import { sql } from "@/lib/db";
-import { groupPerformance, LEAD_WEIGHT, MIN_PIECES, pagePerformance, performancePoints, siteTotals, type Totals } from "@/lib/performance";
 
 export const dynamic = "force-dynamic";
 
 const DAYS = 28;
 const n = (v: number) => v.toLocaleString("en-US");
+const compact = (v: number) => (v >= 10_000 ? `${(v / 1000).toFixed(1)}k` : n(v));
+const pct = (a: number, b: number) => (b > 0 ? (100 * a) / b : 0);
 
-function Delta({ now, prev }: { now: number; prev: number }) {
-  if (!prev && !now) return null;
-  if (!prev) return <span className="text-xs text-emerald-300">new</span>;
-  const pct = Math.round(((now - prev) / prev) * 100);
-  return <span className={`text-xs ${pct >= 0 ? "text-emerald-300" : "text-amber-300"}`}>{pct >= 0 ? "▲" : "▼"} {Math.abs(pct)}%</span>;
+function Delta({ now, prev, lowerIsBetter, unit }: { now: number | null; prev: number | null; lowerIsBetter?: boolean; unit?: "abs" | "places" }) {
+  if (now == null || prev == null || (!now && !prev)) return <p className="text-xs text-faint">no comparison yet</p>;
+  if (!prev && unit !== "places") return <p className="text-xs font-semibold text-good">new</p>;
+  const diff = now - prev;
+  if (Math.abs(diff) < 0.05) return <p className="text-xs text-faint">no change</p>;
+  const better = lowerIsBetter ? diff < 0 : diff > 0;
+  const label =
+    unit === "places" ? `${Math.abs(diff).toFixed(1)} places` : unit === "abs" ? n(Math.abs(diff)) : `${Math.abs(Math.round((100 * diff) / prev))}%`;
+  return <p className={`text-xs font-semibold ${better ? "text-good" : "text-bad"}`}>{better ? "▲" : "▼"} {label}</p>;
 }
 
-function Tile({ label, k, cur, prev, hint }: { label: string; k: keyof Totals; cur: Totals; prev: Totals; hint: string }) {
+function Kpi({ label, value, children, highlight }: { label: string; value: string; children: React.ReactNode; highlight?: boolean }) {
   return (
-    <div className="rounded-lg border border-white/10 p-3" title={hint}>
-      <p className="text-xs text-white/50">{label}</p>
-      <p className="mt-1 flex items-baseline gap-2">
-        <span className="text-2xl font-semibold tabular-nums">{n(cur[k])}</span>
-        <Delta now={cur[k]} prev={prev[k]} />
-      </p>
+    <div className={`card px-[18px] py-4 ${highlight ? "border-accent shadow-[0_0_0_3px_var(--color-accent-soft)]" : ""}`}>
+      <p className={`text-[12.5px] ${highlight ? "font-semibold text-accent" : "text-faint"}`}>{label}</p>
+      <p className="mt-2 mb-0.5 font-mono text-[26px] tracking-tight">{value}</p>
+      {children}
     </div>
   );
 }
@@ -29,134 +37,265 @@ function Tile({ label, k, cur, prev, hint }: { label: string; k: keyof Totals; c
 export default async function PerformancePage({ searchParams }: { searchParams: Promise<{ scope?: string }> }) {
   const { scope } = await searchParams;
   const showAll = scope === "all";
-  const [cur, prev, pages, perf, services, [{ latest }]] = await Promise.all([
+  const [cur, prev, posNow, posPrev, weeks, fun, byService, engine, pages, perf, services, [{ latest }]] = await Promise.all([
     siteTotals(DAYS),
     siteTotals(DAYS, DAYS),
+    avgPosition(DAYS),
+    avgPosition(DAYS, DAYS),
+    weeklySessions(12),
+    funnel(DAYS),
+    leadsByService(DAYS),
+    contentEngine(),
     pagePerformance(DAYS),
     groupPerformance(),
-    sql<{ id: string; name_ja: string }[]>`select id, name_ja from services where active`,
+    sql<{ id: string; name_ja: string }[]>`select id, name_ja from services`,
     sql<{ latest: string | null }[]>`
       select greatest((select max(date) from metrics_daily), (select max(date) from search_queries_daily))::text as latest`,
   ]);
-  const rows = showAll ? pages : pages.filter((p) => p.ours);
-  const serviceRows = [...perf.byService.values()].sort((a, b) => b.perDay - a.perDay);
-  const name = (id: string) => services.find((s) => s.id === id)?.name_ja ?? id;
+
+  const gaOn = has(env.googleServiceAccountJson) && has(env.ga4PropertyId);
+  const gscOn = has(env.googleServiceAccountJson) && has(env.gscSiteUrl);
+
+  // Best-performing service, for the "scoring learned" line.
+  const best = [...perf.byService.values()]
+    .filter((g) => g.pieces >= MIN_PIECES)
+    .map((g) => ({ g, p: performancePoints(perf, g.key, "article", null) }))
+    .sort((a, b) => b.p.points - a.p.points)[0];
+  const serviceName = (id: string) => services.find((s) => s.id === id)?.name_ja ?? id;
+
+  const rows = (showAll ? pages : pages.filter((p) => p.ours)).slice(0, showAll ? 50 : 10);
+  const topService = byService[0];
+  const serviceTotal = byService.reduce((a, s) => a + s.leads, 0);
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8">
-      <h1 className="text-xl font-semibold">Performance</h1>
-      <p className="mt-1 text-sm text-white/60">
-        Last {DAYS} days vs the {DAYS} before. Data up to {latest ?? "-"} (GA4 and Search Console lag 1–3 days).
-      </p>
+    <main className="mx-auto flex max-w-6xl flex-col gap-5 px-6 py-8 md:px-9">
+      {(!gaOn || !gscOn) && (
+        <div className="flex flex-wrap items-center gap-2.5 rounded-[10px] border border-[#F5DDAE] bg-[#FEF8EC] px-3.5 py-2.5 text-[13px] text-[#7A4A0A]">
+          <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M12 8v5M12 16v.5" /></svg>
+          <span>
+            {!gaOn && !gscOn ? "GA4 and Search Console aren't connected yet" : !gaOn ? "GA4 isn't connected yet" : "Search Console isn't connected yet"}, so traffic numbers stay empty until the first morning run after connecting.
+          </span>
+          <Link href="/status" className="font-semibold underline">Connections →</Link>
+        </div>
+      )}
 
-      <section className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Tile label="Website sessions" k="sessions" cur={cur} prev={prev} hint="GA4, whole site" />
-        <Tile label="Search clicks" k="clicks" cur={cur} prev={prev} hint="Google Search Console" />
-        <Tile label="Search impressions" k="impressions" cur={cur} prev={prev} hint="Google Search Console" />
-        <Tile label="Form fills (GA4)" k="leads" cur={cur} prev={prev} hint="generate_lead events from the website forms" />
-        <Tile label="Downloads (Brevo)" k="downloads" cur={cur} prev={prev} hint="Lead-magnet delivery emails sent" />
+      <div>
+        <p className="eyebrow">renesistech.jp · {latest ? `data to ${latest}` : "no data yet"} · vs previous {DAYS} days</p>
+        <h1 className="mt-1.5 text-[28px] font-bold tracking-tight">Performance</h1>
+      </div>
+
+      <section aria-label="Key numbers" className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
+        <Kpi label="Website sessions" value={n(cur.sessions)}><Delta now={cur.sessions} prev={prev.sessions} /></Kpi>
+        <Kpi label="Search clicks" value={n(cur.clicks)}><Delta now={cur.clicks} prev={prev.clicks} /></Kpi>
+        <Kpi label="Search impressions" value={compact(cur.impressions)}><Delta now={cur.impressions} prev={prev.impressions} /></Kpi>
+        <Kpi label="Avg Google position" value={posNow != null ? posNow.toFixed(1) : "—"}>
+          <Delta now={posNow} prev={posPrev} lowerIsBetter unit="places" />
+        </Kpi>
+        <Kpi label="Form fills" value={n(cur.leads)}><Delta now={cur.leads} prev={prev.leads} unit="abs" /></Kpi>
+        <Kpi label="Lead-magnet downloads" value={n(cur.downloads)} highlight><Delta now={cur.downloads} prev={prev.downloads} unit="abs" /></Kpi>
       </section>
 
-      <section className="mt-8">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <h2 className="font-semibold">Pages</h2>
-          <div className="flex gap-2 text-sm">
-            <Link href="/performance" className={`rounded-md border px-3 py-1.5 ${!showAll ? "border-white/40 bg-white/10" : "border-white/15 text-white/60"}`}>
-              Made here ({pages.filter((p) => p.ours).length})
-            </Link>
-            <Link href="/performance?scope=all" className={`rounded-md border px-3 py-1.5 ${showAll ? "border-white/40 bg-white/10" : "border-white/15 text-white/60"}`}>
-              All blog pages ({pages.length})
-            </Link>
+      <div className="flex flex-wrap items-stretch gap-5">
+        <section aria-label="Weekly sessions" className="card min-w-0 flex-[2_1_520px] px-[22px] py-5">
+          <SessionsChart weeks={weeks} />
+        </section>
+
+        <section aria-label="Lead funnel" className="card flex min-w-0 flex-[1_1_300px] flex-col gap-3.5 px-[22px] py-5">
+          <div>
+            <h2 className="text-base font-semibold">
+              {fun.sessions > 0 ? `${pct(fun.leads, fun.sessions).toFixed(1)}% of visits become leads` : "From visit to lead"}
+            </h2>
+            <p className="mt-1 text-[12.5px] text-faint">Last {DAYS} days</p>
           </div>
-        </div>
-        <div className="mt-3 overflow-x-auto rounded-lg border border-white/10">
-          <table className="w-full min-w-[860px] text-sm">
-            <thead className="text-left text-white/50">
-              <tr>
-                <th className="px-3 py-2 font-normal">Page</th>
-                <th className="px-3 py-2 text-right font-normal">Sessions</th>
-                <th className="px-3 py-2 text-right font-normal">Engaged</th>
-                <th className="px-3 py-2 text-right font-normal">Leads</th>
-                <th className="px-3 py-2 text-right font-normal">Search clicks</th>
-                <th className="px-3 py-2 text-right font-normal">Impressions</th>
-                <th className="px-3 py-2 text-right font-normal">Avg position</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/10">
-              {rows.map((r) => (
-                <tr key={r.path}>
-                  <td className="max-w-[340px] px-3 py-2">
-                    <div lang="ja" className="truncate">
-                      {r.topic_id ? <Link href={`/topics/${r.topic_id}`} className="hover:underline">{r.title ?? r.path}</Link> : (r.title ?? r.path)}
-                    </div>
-                    <div className="truncate text-xs text-white/40">
-                      {r.ours && <span className="mr-1 rounded bg-sky-400/20 px-1 text-sky-200">{r.kind === "lead_magnet" ? "magnet" : "ours"}</span>}
-                      {r.path}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    {n(r.sessions)} <Delta now={r.sessions} prev={r.sessions_prev} />
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums text-white/70">{r.engaged_rate != null ? `${Math.round(r.engaged_rate * 100)}%` : "-"}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{n(r.leads + r.downloads)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{n(r.clicks)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums text-white/70">{n(r.impressions)}</td>
-                  <td className={`px-3 py-2 text-right tabular-nums ${r.position != null && r.position >= 8 && r.position <= 20 ? "text-amber-200" : "text-white/70"}`} title={r.position != null && r.position >= 8 && r.position <= 20 ? "Positions 8–20: a refresh could reach page 1" : ""}>
-                    {r.position != null ? r.position.toFixed(1) : "-"}
-                  </td>
-                </tr>
-              ))}
-              {!rows.length && (
-                <tr>
-                  <td colSpan={7} className="px-3 py-5 text-white/40">
-                    {showAll ? "No blog pages yet." : "Nothing published from here yet. Pieces appear once an editor publishes their Payload draft."}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+          <div className="flex flex-col gap-3">
+            <FunnelRow label="Sessions" value={fun.sessions} share={100} base={fun.sessions} />
+            <FunnelRow label="Engaged sessions" value={fun.engaged} share={pct(fun.engaged, fun.sessions)} base={fun.sessions} />
+            <FunnelRow label="Saw a lead-magnet page" value={fun.offerViews} share={pct(fun.offerViews, fun.sessions)} base={fun.sessions} />
+            <FunnelRow label="Leads (forms + downloads)" value={fun.leads} share={pct(fun.leads, fun.sessions)} base={fun.sessions} strong />
+          </div>
+          <p className="mt-auto border-t border-[#F0F1F4] pt-3 text-[12.5px] text-muted">
+            {fun.sessions === 0
+              ? "Fills in once GA4 is connected and lead-magnet landing pages are live."
+              : fun.offerViews < fun.engaged * 0.2
+                ? "Most engaged visitors never reach an offer: add the lead-magnet CTA to the top articles."
+                : "Visitors reach the offers; improve the landing pages' conversion next."}
+          </p>
+        </section>
+      </div>
 
-      <section className="mt-8">
-        <h2 className="font-semibold">What the weekly scoring learns</h2>
-        <p className="mt-1 text-sm text-white/60">
-          Each new topic gets 0–10 performance points from how past pieces for the same service (and, for lead magnets, the same format) did in their first 90 days,
-          compared with the average piece. One lead counts as {LEAD_WEIGHT} sessions. 5 points means average, or fewer than {MIN_PIECES} live pieces to compare.
-        </p>
-        <div className="mt-3 overflow-x-auto rounded-lg border border-white/10">
-          <table className="w-full min-w-[560px] text-sm">
-            <thead className="text-left text-white/50">
-              <tr>
-                <th className="px-3 py-2 font-normal">Service</th>
-                <th className="px-3 py-2 text-right font-normal">Live pieces</th>
-                <th className="px-3 py-2 text-right font-normal">Sessions / day</th>
-                <th className="px-3 py-2 text-right font-normal">Leads / day</th>
-                <th className="px-3 py-2 text-right font-normal">Points now</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/10">
-              <tr className="text-white/60">
-                <td className="px-3 py-2">All pieces (baseline)</td>
-                <td className="px-3 py-2 text-right tabular-nums">{perf.overall.pieces}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{perf.overall.perDay.toFixed(1)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{perf.overall.leadsPerDay.toFixed(2)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">5</td>
-              </tr>
-              {serviceRows.map((g) => (
-                <tr key={g.key}>
-                  <td lang="ja" className="px-3 py-2">{name(g.key)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{g.pieces}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{g.perDay.toFixed(1)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{g.leadsPerDay.toFixed(2)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{performancePoints(perf, g.key, "article", null).points}</td>
-                </tr>
-              ))}
-              {!serviceRows.length && <tr><td colSpan={5} className="px-3 py-4 text-white/40">No live pieces older than 7 days yet.</td></tr>}
-            </tbody>
-          </table>
+      <div className="flex flex-wrap items-start gap-5">
+        <section aria-label="Top content" className="card min-w-0 flex-[2_1_520px] overflow-hidden">
+          <div className="flex flex-wrap items-baseline justify-between gap-3 px-[22px] pt-[18px] pb-3">
+            <h2 className="text-base font-semibold">{showAll ? "All blog pages" : "Content made here"}</h2>
+            <div className="flex gap-1.5 text-[13px]">
+              <Link href="/performance" className={`rounded-md px-2.5 py-1 ${!showAll ? "bg-subtle font-semibold" : "text-muted hover:text-ink"}`}>Made here</Link>
+              <Link href="/performance?scope=all" className={`rounded-md px-2.5 py-1 ${showAll ? "bg-subtle font-semibold" : "text-muted hover:text-ink"}`}>All blog pages</Link>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <div className="min-w-[680px]">
+              <div className="eyebrow grid grid-cols-[minmax(0,1fr)_96px_80px_72px_64px] gap-3 border-y border-line bg-[#FAFAFB] px-[22px] py-2.5 text-[10.5px]">
+                <span>Page</span><span className="text-right">Sessions</span><span className="text-right">Clicks</span><span className="text-right">Pos.</span><span className="text-right">Leads</span>
+              </div>
+              {rows.map((r) => {
+                const refresh = r.position != null && r.position >= 8 && r.position <= 20;
+                const up = r.sessions > r.sessions_prev && r.sessions_prev > 0;
+                const down = r.sessions < r.sessions_prev;
+                return (
+                  <div key={r.path} className="grid grid-cols-[minmax(0,1fr)_96px_80px_72px_64px] items-center gap-3 border-b border-[#F0F1F4] px-[22px] py-3 last:border-b-0">
+                    <span className="min-w-0 truncate" lang="ja">
+                      {r.kind === "lead_magnet" && <span className="mr-1.5 rounded bg-accent-soft px-1.5 py-px font-sans text-[11px] font-semibold text-accent">PDF</span>}
+                      {r.topic_id ? (
+                        <Link href={`/topics/${r.topic_id}`} className="font-medium hover:text-accent-ink">{r.title ?? r.path}</Link>
+                      ) : (
+                        <a href={`https://renesistech.jp${r.path}`} target="_blank" rel="noreferrer" className="font-medium hover:text-accent-ink">{r.title ?? r.path}</a>
+                      )}
+                    </span>
+                    <span className="text-right font-mono">
+                      {n(r.sessions)} {up && <span className="text-[11px] text-good">▲</span>}
+                      {down && <span className="text-[11px] text-bad">▼</span>}
+                    </span>
+                    <span className="text-right font-mono">{n(r.clicks)}</span>
+                    <span className={`text-right font-mono ${refresh ? "text-warn" : ""}`}>{r.position != null ? r.position.toFixed(1) : "—"}</span>
+                    <span className="text-right font-mono font-semibold">{n(r.leads + r.downloads)}</span>
+                  </div>
+                );
+              })}
+              {!rows.length && (
+                <p className="px-[22px] py-6 text-sm text-faint">
+                  {showAll ? "No blog pages found yet." : "Nothing published from here yet. Pieces appear once an editor publishes their Payload draft."}
+                </p>
+              )}
+            </div>
+          </div>
+          <p className="border-t border-[#F0F1F4] px-[22px] py-3 text-xs text-faint">Positions in amber (8–20) are refresh candidates: a rewrite can reach Google's first page.</p>
+        </section>
+
+        <div className="flex min-w-0 flex-[1_1_300px] flex-col gap-5">
+          <section aria-label="Leads by service" className="card flex flex-col gap-3 px-[22px] py-5">
+            <h2 className="text-base font-semibold">
+              {topService ? <span lang="ja">{topService.service} brings {Math.round(pct(topService.leads, serviceTotal))}% of leads</span> : "Leads by service"}
+            </h2>
+            {byService.length ? (
+              <div className="grid grid-cols-[132px_minmax(0,1fr)_40px] items-center gap-2.5 text-[13px]">
+                {byService.slice(0, 6).map((s, i) => (
+                  <ServiceBar key={s.service} name={s.service} share={pct(s.leads, serviceTotal)} rel={pct(s.leads, byService[0].leads)} rank={i} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-[13px] text-faint">Appears once published pieces start bringing in form fills or downloads.</p>
+            )}
+          </section>
+
+          <section aria-label="Content engine" className="flex flex-col gap-3.5 rounded-[14px] bg-ink px-[22px] py-5 text-[#E6E8EE]">
+            <h2 className="text-base font-semibold text-white">Content engine this month</h2>
+            <div className="grid grid-cols-3 gap-2.5">
+              <div><p className="font-mono text-[22px] text-white">{engine.publishedThisMonth}</p><p className="mt-0.5 text-xs text-[#98A2B3]">published</p></div>
+              <div><p className="font-mono text-[22px] text-white">{engine.avgReview ?? "—"}</p><p className="mt-0.5 text-xs text-[#98A2B3]">avg review score</p></div>
+              <div><p className="font-mono text-[22px] text-white">{engine.refreshDue}</p><p className="mt-0.5 text-xs text-[#98A2B3]">refresh due</p></div>
+            </div>
+            <p className="border-t border-[#1F2937] pt-3 text-[13px] leading-relaxed text-[#C3C8D4]">
+              {best && best.p.points !== 5 ? (
+                <>Scoring learned: <span lang="ja">{serviceName(best.g.key)}</span> topics earn {(best.p.points / 5).toFixed(2)}× the average piece, so they get {best.p.points} of 10 performance points.</>
+              ) : (
+                <>Scoring stays neutral until a service has {MIN_PIECES}+ pieces live for a week. One lead counts as {LEAD_WEIGHT} sessions.</>
+              )}
+            </p>
+            <Link href="/review" className="inline-flex min-h-10 items-center self-start rounded-lg bg-white px-3.5 text-[13px] font-semibold text-ink hover:bg-subtle">
+              Open monthly review
+            </Link>
+          </section>
         </div>
-      </section>
+      </div>
     </main>
+  );
+}
+
+function FunnelRow({ label, value, share, base, strong }: { label: string; value: number; share: number; base: number; strong?: boolean }) {
+  return (
+    <div>
+      <p className={`mb-1.5 flex justify-between text-[13px] ${strong ? "font-semibold" : ""}`}>
+        <span>{label}</span>
+        <span className="font-mono">
+          {n(value)}
+          {base > 0 && share < 100 ? ` · ${share < 10 ? share.toFixed(1) : Math.round(share)}%` : ""}
+        </span>
+      </p>
+      <div className="h-2.5 rounded-full bg-[#EEF0F3]">
+        <div
+          className={`h-full rounded-full ${strong ? "bg-ink" : "bg-accent"}`}
+          style={{ width: `${base > 0 ? Math.max(share, value > 0 ? 2 : 0) : 0}%`, opacity: strong ? 1 : Math.max(0.45, share / 100) }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ServiceBar({ name, share, rel, rank }: { name: string; share: number; rel: number; rank: number }) {
+  return (
+    <>
+      <span lang="ja" className="truncate">{name}</span>
+      <div className="h-2 rounded bg-[#EEF0F3]">
+        <div className={`h-full rounded ${rank < 3 ? "bg-accent" : "bg-[#98A2B3]"}`} style={{ width: `${rel}%`, opacity: rank < 3 ? 1 - rank * 0.25 : 1 }} />
+      </div>
+      <span className="text-right font-mono">{Math.round(share)}%</span>
+    </>
+  );
+}
+
+/** Weekly sessions as an area line, with a diamond under each week a piece went live. */
+function SessionsChart({ weeks }: { weeks: Week[] }) {
+  const W = 780, left = 48, right = 740, top = 30, bottom = 210;
+  const max = Math.max(...weeks.map((w) => w.sessions), 0);
+  const first = weeks.find((w) => w.sessions > 0)?.sessions ?? 0;
+  const last = weeks.at(-1)?.sessions ?? 0;
+  const change = first > 0 ? Math.round((100 * (last - first)) / first) : null;
+  const step = max <= 0 ? 1 : Math.pow(10, Math.floor(Math.log10(max)));
+  const nice = max <= 0 ? 4 : Math.ceil(max / step / 2) * 2 * step;
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(nice * f));
+  const x = (i: number) => left + (i * (right - left)) / Math.max(1, weeks.length - 1);
+  const y = (v: number) => bottom - (v / nice) * (bottom - top);
+  const line = weeks.map((w, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(w.sessions).toFixed(1)}`).join(" ");
+  const label = (d: string) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${d}T00:00:00Z`));
+
+  return (
+    <>
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold">
+            {max === 0 ? "Weekly sessions" : change == null ? "Weekly sessions, last 12 weeks" : `Traffic is ${change >= 0 ? "up" : "down"} ${Math.abs(change)}% in 12 weeks`}
+          </h2>
+          <p className="mt-1 text-[12.5px] text-faint">Sessions per week on renesistech.jp · ◆ = a piece went live that week</p>
+        </div>
+        {max > 0 && <span className="font-mono text-xs text-faint">{n(first)} → {n(last)} / week</span>}
+      </div>
+      {max === 0 ? (
+        <div className="mt-3.5 flex h-[220px] items-center justify-center rounded-lg border border-dashed border-line-strong px-4 text-center text-[13px] text-faint">
+          No GA4 data yet: the chart draws itself after the first daily run.
+        </div>
+      ) : (
+        <svg viewBox={`0 0 ${W} 250`} role="img" aria-label={`Weekly sessions from ${first} to ${last} over ${weeks.length} weeks`} className="mt-3.5 block h-auto w-full font-mono">
+          <g stroke="#F0F1F4">{ticks.slice(1).map((t) => <line key={t} x1={left} x2={right} y1={y(t)} y2={y(t)} />)}</g>
+          <line x1={left} x2={right} y1={bottom} y2={bottom} stroke="#D0D5DD" />
+          <g fill="#98A2B3" fontSize="11">
+            {ticks.map((t) => <text key={t} x={left - 8} y={y(t) + 4} textAnchor="end">{n(t)}</text>)}
+            {weeks.map((w, i) => (i % 2 === 0 ? <text key={w.week} x={x(i)} y={bottom + 22} textAnchor="middle">{label(w.week)}</text> : null))}
+          </g>
+          <path d={`${line} L${right} ${bottom} L${left} ${bottom} Z`} fill="var(--color-accent)" fillOpacity="0.08" />
+          <path d={line} fill="none" stroke="var(--color-accent)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+          <circle cx={x(weeks.length - 1)} cy={y(last)} r="4.5" fill="#FFFFFF" stroke="var(--color-accent)" strokeWidth="2.5" />
+          <text x={x(weeks.length - 1) - 8} y={y(last) - 10} textAnchor="end" fill="#0B1220" fontSize="12" fontWeight="500">{n(last)}</text>
+          <g fill="#0B1220">
+            {weeks.map((w, i) =>
+              w.published > 0 ? (
+                <path key={w.week} d={`M${x(i)} ${bottom - 8} l6 6 l-6 6 l-6 -6 z`}>
+                  <title>{`${w.published} piece(s) went live`}</title>
+                </path>
+              ) : null,
+            )}
+          </g>
+        </svg>
+      )}
+    </>
   );
 }

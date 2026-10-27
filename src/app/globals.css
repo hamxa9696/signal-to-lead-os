@@ -1,23 +1,66 @@
 @import "tailwindcss";
 
-:root {
-  --background: #0b0e14;
-  --foreground: #e6e8ec;
+/* B Light — premium light theme. Named colours used across the app. */
+@theme {
+  --color-canvas: #F4F5F7;
+  --color-surface: #FFFFFF;
+  --color-sidebar: #FBFBFC;
+  --color-ink: #0B1220;
+  --color-body: #344054;
+  --color-muted: #475467;
+  --color-faint: #667085;
+  --color-line: #E4E7EC;
+  --color-line-strong: #D0D5DD;
+  --color-subtle: #F2F4F7;
+  --color-accent: #4F46E5;
+  --color-accent-ink: #3B35C9;
+  --color-accent-soft: #EEF0FF;
+  --color-good: #0B7A52;
+  --color-good-soft: #E8F6EF;
+  --color-good-dot: #12A06B;
+  --color-warn: #9A5B0B;
+  --color-warn-soft: #FEF5E7;
+  --color-warn-dot: #D9911A;
+  --color-bad: #B42318;
+  --color-bad-soft: #FEF3F2;
+
+  --font-sans: var(--font-inter-tight), var(--font-noto-jp), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+  --font-jp: var(--font-noto-jp), var(--font-inter-tight), sans-serif;
+}
+
+@utility card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+@utility eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-faint);
 }
 
 html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+:lang(ja) {
+  font-family: var(--font-jp);
 }
 
 /* Draft preview (rendered Markdown) */
 .prose-preview h2 { font-size: 1.15rem; font-weight: 600; margin: 1.4em 0 0.5em; }
 .prose-preview h3 { font-size: 1rem; font-weight: 600; margin: 1.2em 0 0.4em; }
-.prose-preview p { margin: 0.6em 0; color: rgb(255 255 255 / 0.8); }
+.prose-preview p { margin: 0.6em 0; color: var(--color-body); }
 .prose-preview ul { list-style: disc; padding-left: 1.4em; margin: 0.5em 0; }
 .prose-preview ol { list-style: decimal; padding-left: 1.4em; margin: 0.5em 0; }
-.prose-preview a { text-decoration: underline; color: rgb(125 211 252); }
-.prose-preview strong { color: white; }
+.prose-preview a { text-decoration: underline; color: var(--color-accent-ink); }
+.prose-preview strong { color: var(--color-ink); }

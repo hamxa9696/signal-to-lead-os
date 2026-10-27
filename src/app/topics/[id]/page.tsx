@@ -40,9 +40,9 @@ function previewHtml(md: string): string {
 
 function Section({ n, title, children, done }: { n: number; title: string; children: React.ReactNode; done?: boolean }) {
   return (
-    <section className="rounded-lg border border-white/10 p-4">
+    <section className="card p-4">
       <h2 className="flex items-center gap-2 font-semibold">
-        <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${done ? "bg-emerald-500 text-black" : "bg-white/10"}`}>
+        <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${done ? "bg-good text-white" : "bg-subtle"}`}>
           {done ? "✓" : n}
         </span>
         {title}
@@ -80,46 +80,46 @@ export default async function TopicWorkspace({ params }: { params: Promise<{ id:
 
   return (
     <main className="mx-auto max-w-5xl overflow-x-hidden px-4 py-8">
-      <Link href={`/topics?week=${topic.week_of}`} className="text-sm text-white/50 hover:text-white">← Week of {topic.week_of}</Link>
+      <Link href={`/topics?week=${topic.week_of}`} className="text-sm text-faint hover:text-ink">← Week of {topic.week_of}</Link>
       <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs text-white/50">
+          <p className="text-xs text-faint">
             {topic.kind === "lead_magnet" ? `Lead magnet · ${topic.magnet_format}` : "Article"} · topic {topic.status}
-            {item && <> · <span className="text-white/80">{ITEM_STATUS[item.status] ?? item.status}</span></>}
+            {item && <> · <span className="text-ink">{ITEM_STATUS[item.status] ?? item.status}</span></>}
           </p>
           <h1 lang="ja" className="mt-1 text-xl font-semibold">{item?.title ?? topic.title_ja}</h1>
-          <p lang="ja" className="mt-1 text-sm text-white/50">{topic.primary_keyword} · {topic.secondary_keywords.join("、")}</p>
+          <p lang="ja" className="mt-1 text-sm text-faint">{topic.primary_keyword} · {topic.secondary_keywords.join("、")}</p>
         </div>
         {topic.status === "proposed" && (
           <form action={setTopicStatus}>
             <input type="hidden" name="id" value={topic.id} />
             <input type="hidden" name="status" value="approved" />
-            <button className="rounded-md bg-emerald-500/90 px-3 py-1.5 text-sm text-black hover:bg-emerald-400">Approve to start</button>
+            <button className="rounded-md bg-accent px-3 py-1.5 text-sm text-white hover:bg-accent-ink">Approve to start</button>
           </form>
         )}
       </div>
 
       {!active ? (
-        <p className="mt-6 rounded-lg border border-white/10 px-4 py-6 text-sm text-white/60">
+        <p className="mt-6 card px-4 py-6 text-sm text-muted">
           Approve this topic to get its prompt pack.
         </p>
       ) : (
         <div className="mt-6 space-y-4">
           <Section n={1} title="Prompt pack: copy into ChatGPT or Claude" done={versions.length > 0}>
-            <p className="text-sm text-white/60">
+            <p className="text-sm text-muted">
               Start a new chat, paste this, and copy the whole answer back into step 2. It includes the style guide, banned phrases and fact sheet from{" "}
-              <Link href="/knowledge" className="underline decoration-white/30">Knowledge</Link>.
+              <Link href="/knowledge" className="underline decoration-line-strong">Knowledge</Link>.
             </p>
             <div className="flex flex-wrap gap-2">
               <CopyButton text={pack!} label="Copy prompt pack" />
               <form action={rebuildPackAction}>
                 <input type="hidden" name="topicId" value={id} />
-                <button className="rounded-md border border-white/15 px-3 py-1.5 text-sm hover:bg-white/10">Rebuild (after editing Knowledge)</button>
+                <button className="rounded-md border border-line-strong bg-surface px-3 py-1.5 text-sm hover:bg-subtle">Rebuild (after editing Knowledge)</button>
               </form>
             </div>
             <details>
-              <summary className="cursor-pointer text-sm text-white/50 hover:text-white">Show prompt ({pack!.length.toLocaleString()} chars)</summary>
-              <pre lang="ja" className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap rounded-md bg-black/30 p-3 text-xs text-white/70">{pack}</pre>
+              <summary className="cursor-pointer text-sm text-faint hover:text-ink">Show prompt ({pack!.length.toLocaleString()} chars)</summary>
+              <pre lang="ja" className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap rounded-md bg-surface p-3 text-xs text-body">{pack}</pre>
             </details>
           </Section>
 
@@ -135,26 +135,26 @@ export default async function TopicWorkspace({ params }: { params: Promise<{ id:
                 {item && item.status === "needs_revision" && (
                   <form action={markReadyAction}>
                     <input type="hidden" name="topicId" value={id} />
-                    <button className="rounded-md border border-amber-400/40 px-3 py-1.5 text-sm text-amber-200 hover:bg-amber-400/10">
+                    <button className="rounded-md border border-warn/40 px-3 py-1.5 text-sm text-warn hover:bg-warn-soft">
                       Accept anyway (I checked it)
                     </button>
                   </form>
                 )}
               </div>
               {review && !review.passed && (
-                <div className="rounded-md border border-white/10 p-3">
+                <div className="rounded-md border border-line p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm text-white/70">Revision prompt: paste into the <b>same</b> chat that wrote the draft.</p>
+                    <p className="text-sm text-body">Revision prompt: paste into the <b>same</b> chat that wrote the draft.</p>
                     <CopyButton text={buildRevisionPrompt(review)} label="Copy revision prompt" />
                   </div>
                 </div>
               )}
               <details>
-                <summary className="cursor-pointer text-sm text-white/50 hover:text-white">Preview v{current.version}</summary>
-                <article lang="ja" className="prose-preview mt-3 rounded-md bg-white/[0.03] p-4 text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: previewHtml(current.body_md) }} />
+                <summary className="cursor-pointer text-sm text-faint hover:text-ink">Preview v{current.version}</summary>
+                <article lang="ja" className="prose-preview mt-3 rounded-md bg-subtle p-4 text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: previewHtml(current.body_md) }} />
               </details>
               {versions.length > 1 && (
-                <p className="text-xs text-white/40">
+                <p className="text-xs text-faint">
                   History: {versions.map((v) => `v${v.version} ${v.drafted_by} ${v.review_passed ? "✓" : v.review_passed === false ? "✗" : "·"}`).join(" · ")}
                 </p>
               )}
@@ -178,12 +178,12 @@ export default async function TopicWorkspace({ params }: { params: Promise<{ id:
                 />
               ) : (
                 <>
-                  <p className="text-sm text-white/60">
+                  <p className="text-sm text-muted">
                     Creates (or updates) a post with status <code>draft</code> on renesistech.jp. Drafts are not visible to the public. Add the featured image, check the category, then publish in the Payload admin.
                   </p>
-                  {!payload.ok && <p className="text-sm text-amber-300">{payload.reason}</p>}
+                  {!payload.ok && <p className="text-sm text-warn">{payload.reason}</p>}
                   {item.status !== "ready" && item.status !== "published" && (
-                    <p className="text-sm text-white/50">Available once the review passes (or you accept it).</p>
+                    <p className="text-sm text-faint">Available once the review passes (or you accept it).</p>
                   )}
                   <PushToPayload
                     topicId={id}
@@ -192,10 +192,10 @@ export default async function TopicWorkspace({ params }: { params: Promise<{ id:
                     label={pub?.external_id ? "Update Payload draft" : "Create Payload draft"}
                   />
                   {pub?.external_id && (
-                    <p className="text-sm text-white/60">
+                    <p className="text-sm text-muted">
                       Status: <b>{pub.status}</b> ·{" "}
-                      <a href={adminUrl(pub.external_id)} target="_blank" rel="noreferrer" className="underline decoration-white/30">Open in Payload admin</a>
-                      {pub.status === "live" && pub.url && <> · <a href={pub.url} target="_blank" rel="noreferrer" className="underline decoration-white/30">View live</a></>}
+                      <a href={adminUrl(pub.external_id)} target="_blank" rel="noreferrer" className="underline decoration-line-strong">Open in Payload admin</a>
+                      {pub.status === "live" && pub.url && <> · <a href={pub.url} target="_blank" rel="noreferrer" className="underline decoration-line-strong">View live</a></>}
                     </p>
                   )}
                 </>
@@ -213,15 +213,15 @@ async function Results({ path, publishedAt }: { path: string; publishedAt: Date 
   const [rows, queries, sources] = await Promise.all([pagePerformance(28), topQueriesForPath(path), sourcesForPath(path)]);
   const r = rows.find((x) => x.path === path);
   const stat = (label: string, v: string) => (
-    <div className="rounded-md bg-white/[0.03] p-2">
-      <p className="text-xs text-white/50">{label}</p>
+    <div className="rounded-md bg-subtle p-2">
+      <p className="text-xs text-faint">{label}</p>
       <p className="text-lg font-semibold tabular-nums">{v}</p>
     </div>
   );
   return (
-    <section className="rounded-lg border border-white/10 p-4">
+    <section className="card p-4">
       <h2 className="font-semibold">Results (last 28 days)</h2>
-      <p className="text-xs text-white/40">Published {publishedAt ? new Date(publishedAt).toISOString().slice(0, 10) : "-"} · {path}</p>
+      <p className="text-xs text-faint">Published {publishedAt ? new Date(publishedAt).toISOString().slice(0, 10) : "-"} · {path}</p>
       <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-5">
         {stat("Sessions", (r?.sessions ?? 0).toLocaleString())}
         {stat("Engaged", r?.engaged_rate != null ? `${Math.round(r.engaged_rate * 100)}%` : "-")}
@@ -231,27 +231,27 @@ async function Results({ path, publishedAt }: { path: string; publishedAt: Date 
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <div className="min-w-0">
-          <h3 className="text-sm font-medium text-white/80">Top search queries</h3>
+          <h3 className="text-sm font-medium text-ink">Top search queries</h3>
           <ul lang="ja" className="mt-1 space-y-0.5 text-sm">
             {queries.map((q) => (
               <li key={q.query} className="flex min-w-0 justify-between gap-3">
                 <span className="min-w-0 truncate">{q.query}</span>
-                <span className="shrink-0 tabular-nums text-white/50">{q.impressions} imp · {q.clicks} clk · {q.position.toFixed(1)}</span>
+                <span className="shrink-0 tabular-nums text-faint">{q.impressions} imp · {q.clicks} clk · {q.position.toFixed(1)}</span>
               </li>
             ))}
-            {!queries.length && <li className="text-white/40">No search data yet.</li>}
+            {!queries.length && <li className="text-faint">No search data yet.</li>}
           </ul>
         </div>
         <div className="min-w-0">
-          <h3 className="text-sm font-medium text-white/80">Traffic sources</h3>
+          <h3 className="text-sm font-medium text-ink">Traffic sources</h3>
           <ul className="mt-1 space-y-0.5 text-sm">
             {sources.map((s) => (
               <li key={s.source_medium} className="flex min-w-0 justify-between gap-3">
                 <span className="min-w-0 truncate">{s.source_medium}</span>
-                <span className="shrink-0 tabular-nums text-white/50">{s.sessions}</span>
+                <span className="shrink-0 tabular-nums text-faint">{s.sessions}</span>
               </li>
             ))}
-            {!sources.length && <li className="text-white/40">No GA4 data yet.</li>}
+            {!sources.length && <li className="text-faint">No GA4 data yet.</li>}
           </ul>
         </div>
       </div>
@@ -260,41 +260,41 @@ async function Results({ path, publishedAt }: { path: string; publishedAt: Date 
 }
 
 function ReviewView({ review, humanChecked }: { review: ReviewResult | null; humanChecked: boolean }) {
-  if (!review) return <p className="text-sm text-white/50">Not reviewed yet.</p>;
+  if (!review) return <p className="text-sm text-faint">Not reviewed yet.</p>;
   const ai = review.ai;
   return (
     <div className="space-y-3">
-      <div className={`rounded-md px-3 py-2 text-sm ${review.passed ? "bg-emerald-500/15 text-emerald-200" : humanChecked ? "bg-sky-500/15 text-sky-200" : "bg-amber-500/15 text-amber-200"}`}>
+      <div className={`rounded-md px-3 py-2 text-sm ${review.passed ? "bg-good-soft text-good" : humanChecked ? "bg-accent-soft text-accent" : "bg-warn-soft text-warn"}`}>
         {review.passed ? "Passed: ready to publish." : humanChecked ? "Accepted manually despite the issues below." : `Needs revision: ${review.reasons.join(" · ")}`}
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
         <div className="min-w-0">
-          <h3 className="text-sm font-medium text-white/80">Automatic checks</h3>
+          <h3 className="text-sm font-medium text-ink">Automatic checks</h3>
           <ul className="mt-1 space-y-0.5 text-sm">
             {review.checks.map((c) => (
               <li key={c.id} className="flex min-w-0 gap-2">
-                <span className={c.ok ? "text-emerald-400" : c.blocking ? "text-amber-300" : "text-white/40"}>{c.ok ? "✓" : c.blocking ? "✗" : "!"}</span>
-                <span className={`shrink-0 ${c.ok ? "text-white/60" : "text-white/85"}`}>{c.label}</span>
-                {c.detail && c.detail !== "ok" && <span lang="ja" className="min-w-0 truncate text-white/40">{c.detail}</span>}
+                <span className={c.ok ? "text-good" : c.blocking ? "text-warn" : "text-faint"}>{c.ok ? "✓" : c.blocking ? "✗" : "!"}</span>
+                <span className={`shrink-0 ${c.ok ? "text-muted" : "text-ink"}`}>{c.label}</span>
+                {c.detail && c.detail !== "ok" && <span lang="ja" className="min-w-0 truncate text-faint">{c.detail}</span>}
               </li>
             ))}
           </ul>
         </div>
         <div className="min-w-0">
-          <h3 className="text-sm font-medium text-white/80">
-            Gemini review {ai && <span className="text-white/50">· {ai.overall}/100 (pass ≥ {PASS_SCORE})</span>}
+          <h3 className="text-sm font-medium text-ink">
+            Gemini review {ai && <span className="text-faint">· {ai.overall}/100 (pass ≥ {PASS_SCORE})</span>}
           </h3>
-          {review.aiError && <p className="mt-1 text-sm text-amber-300">Review failed: {review.aiError}</p>}
+          {review.aiError && <p className="mt-1 text-sm text-warn">Review failed: {review.aiError}</p>}
           {ai && (
             <>
-              <p className="mt-1 text-sm text-white/60">{ai.summary}</p>
+              <p className="mt-1 text-sm text-muted">{ai.summary}</p>
               <ul className="mt-2 space-y-0.5 text-sm">
                 {ai.scores.map((s) => (
                   <li key={s.id} className="flex min-w-0 gap-2" title={s.note}>
-                    <span className={`w-8 tabular-nums ${s.score >= 4 ? "text-emerald-400" : s.score >= 3 ? "text-white/60" : "text-amber-300"}`}>{s.score}/5</span>
-                    <span className="shrink-0 text-white/70">{s.id}</span>
-                    <span className="min-w-0 truncate text-white/40">{s.note}</span>
+                    <span className={`w-8 tabular-nums ${s.score >= 4 ? "text-good" : s.score >= 3 ? "text-muted" : "text-warn"}`}>{s.score}/5</span>
+                    <span className="shrink-0 text-body">{s.id}</span>
+                    <span className="min-w-0 truncate text-faint">{s.note}</span>
                   </li>
                 ))}
               </ul>
@@ -305,14 +305,14 @@ function ReviewView({ review, humanChecked }: { review: ReviewResult | null; hum
 
       {ai && ai.issues.length > 0 && (
         <div>
-          <h3 className="text-sm font-medium text-white/80">Issues ({ai.issues.length})</h3>
+          <h3 className="text-sm font-medium text-ink">Issues ({ai.issues.length})</h3>
           <ol className="mt-1 space-y-2 text-sm">
             {ai.issues.map((i, n) => (
-              <li key={n} className="break-words rounded-md bg-white/[0.03] p-2">
-                <span className={`mr-2 rounded px-1.5 py-0.5 text-xs ${i.severity === "high" ? "bg-amber-500/30 text-amber-100" : i.severity === "medium" ? "bg-white/10" : "bg-white/5 text-white/50"}`}>{i.severity}</span>
-                {i.quote && <span lang="ja" className="text-white/80">「{i.quote}」</span>}
-                <p className="mt-1 text-white/60">{i.problem}</p>
-                {i.fix && <p lang="ja" className="mt-0.5 text-white/45">→ {i.fix}</p>}
+              <li key={n} className="break-words rounded-md bg-subtle p-2">
+                <span className={`mr-2 rounded px-1.5 py-0.5 text-xs ${i.severity === "high" ? "bg-warn-soft text-warn" : i.severity === "medium" ? "bg-subtle" : "bg-subtle text-faint"}`}>{i.severity}</span>
+                {i.quote && <span lang="ja" className="text-ink">「{i.quote}」</span>}
+                <p className="mt-1 text-muted">{i.problem}</p>
+                {i.fix && <p lang="ja" className="mt-0.5 text-faint">→ {i.fix}</p>}
               </li>
             ))}
           </ol>
@@ -326,16 +326,16 @@ async function RefreshFinish({ markdown, path, ready }: { markdown: string; path
   const { fetchLivePost, adminUrl } = await import("@/lib/content/publish");
   const live = path ? await fetchLivePost(path).catch(() => null) : null;
   return (
-    <div className="space-y-2 text-sm text-white/60">
+    <div className="space-y-2 text-sm text-muted">
       <p>
         The post is already live, and the API user may only create drafts, so the rewrite is applied in the Payload admin:
         copy the Markdown, open the post, replace the body, check the title and meta, then save.
       </p>
-      {!ready && <p className="text-white/50">Available once the review passes (or you accept it).</p>}
+      {!ready && <p className="text-faint">Available once the review passes (or you accept it).</p>}
       <div className="flex flex-wrap gap-2">
         {ready && <CopyButton text={markdown} label="Copy rewritten Markdown" />}
         {live && (
-          <a href={adminUrl(live.id)} target="_blank" rel="noreferrer" className="rounded-md border border-white/15 px-3 py-1.5 hover:bg-white/10">
+          <a href={adminUrl(live.id)} target="_blank" rel="noreferrer" className="rounded-md border border-line-strong bg-surface px-3 py-1.5 hover:bg-subtle">
             Open live post in Payload admin
           </a>
         )}
@@ -354,47 +354,47 @@ function MagnetSteps({ topicId, itemId, ready, file, currentVersionId, pub, payl
   const landingCategory = has(env.payloadResourcesCategoryId);
   return (
     <div className="space-y-4 text-sm">
-      {!ready && <p className="text-white/50">Available once the review passes (or you accept it).</p>}
+      {!ready && <p className="text-faint">Available once the review passes (or you accept it).</p>}
 
       <div className="space-y-2">
-        <h3 className="font-medium text-white/80">a. PDF</h3>
+        <h3 className="font-medium text-ink">a. PDF</h3>
         <BuildPdf topicId={topicId} disabled={!ready} rebuild={Boolean(file)} />
         {file && (
-          <p className="text-white/60">
-            <a href={`/api/magnets/${file.slug}`} target="_blank" rel="noreferrer" className="underline decoration-white/30">Open {file.slug}.pdf</a>{" "}
+          <p className="text-muted">
+            <a href={`/api/magnets/${file.slug}`} target="_blank" rel="noreferrer" className="underline decoration-line-strong">Open {file.slug}.pdf</a>{" "}
             · {file.pages ?? "?"} pages · {(file.bytes / 1024).toFixed(0)} KB
-            {stale && <span className="text-amber-300"> · from an older version, rebuild</span>}
+            {stale && <span className="text-warn"> · from an older version, rebuild</span>}
           </p>
         )}
       </div>
 
       <div className="space-y-2">
-        <h3 className="font-medium text-white/80">b. Public download link</h3>
-        {!storage.ok && <p className="text-amber-300">{storage.reason}</p>}
+        <h3 className="font-medium text-ink">b. Public download link</h3>
+        {!storage.ok && <p className="text-warn">{storage.reason}</p>}
         <UploadPdf topicId={topicId} disabled={!file || stale || !storage.ok} again={Boolean(file?.public_url)} />
         {file?.public_url ? (
-          <p className="break-all text-white/60">Link: <a href={file.public_url} target="_blank" rel="noreferrer" className="underline decoration-white/30">{file.public_url}</a></p>
+          <p className="break-all text-muted">Link: <a href={file.public_url} target="_blank" rel="noreferrer" className="underline decoration-line-strong">{file.public_url}</a></p>
         ) : (
-          base && file && <p className="break-all text-white/40">Will be: {base}/{file.slug}.pdf</p>
+          base && file && <p className="break-all text-faint">Will be: {base}/{file.slug}.pdf</p>
         )}
       </div>
 
       <div className="space-y-2">
-        <h3 className="font-medium text-white/80">c. Landing page (Payload draft, 資料ダウンロード category)</h3>
-        <p className="text-white/50">Intro, “この資料でわかること”, “こんな方におすすめ”, and the section list. The website shows the download form under it.</p>
-        {!payloadOk && <p className="text-amber-300">{payloadReason}</p>}
-        {payloadOk && !landingCategory && <p className="text-amber-300">PAYLOAD_RESOURCES_CATEGORY_ID not set (SETUP.md §6)</p>}
+        <h3 className="font-medium text-ink">c. Landing page (Payload draft, 資料ダウンロード category)</h3>
+        <p className="text-faint">Intro, “この資料でわかること”, “こんな方におすすめ”, and the section list. The website shows the download form under it.</p>
+        {!payloadOk && <p className="text-warn">{payloadReason}</p>}
+        {payloadOk && !landingCategory && <p className="text-warn">PAYLOAD_RESOURCES_CATEGORY_ID not set (SETUP.md §6)</p>}
         <PushToPayload
           topicId={topicId}
           itemId={itemId}
           disabled={!payloadOk || !landingCategory || !ready || !file?.public_url}
           label={pub?.external_id ? "Update landing draft" : "Create landing draft"}
         />
-        {!file?.public_url && <p className="text-white/40">Upload the PDF first, so the form's link works when the page goes live.</p>}
+        {!file?.public_url && <p className="text-faint">Upload the PDF first, so the form's link works when the page goes live.</p>}
         {pub?.external_id && (
-          <p className="text-white/60">
-            Status: <b>{pub.status}</b> · <a href={adminUrl(pub.external_id)} target="_blank" rel="noreferrer" className="underline decoration-white/30">Open in Payload admin</a>
-            {pub.status === "live" && pub.url && <> · <a href={pub.url} target="_blank" rel="noreferrer" className="underline decoration-white/30">View live</a></>}
+          <p className="text-muted">
+            Status: <b>{pub.status}</b> · <a href={adminUrl(pub.external_id)} target="_blank" rel="noreferrer" className="underline decoration-line-strong">Open in Payload admin</a>
+            {pub.status === "live" && pub.url && <> · <a href={pub.url} target="_blank" rel="noreferrer" className="underline decoration-line-strong">View live</a></>}
           </p>
         )}
       </div>

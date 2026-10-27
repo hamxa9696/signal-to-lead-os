@@ -4,7 +4,7 @@ import { buildPdfAction, pushToPayloadAction, rerunReviewAction, saveDraftAction
 
 function Status({ state }: { state: ActionState }) {
   if (!state) return null;
-  return <p className={`text-sm ${state.ok ? "text-emerald-300" : "text-amber-300"}`}>{state.message}</p>;
+  return <p className={`text-sm ${state.ok ? "text-good" : "text-warn"}`}>{state.message}</p>;
 }
 
 const btn = "rounded-md px-3 py-1.5 text-sm disabled:opacity-50";
@@ -20,19 +20,19 @@ export function DraftForm({ topicId }: { topicId: string }) {
         rows={12}
         lang="ja"
         placeholder={"---\ntitle: …\nslug: …\nmeta_title: …\nmeta_description: …\nexcerpt: …\n---\n\n## …"}
-        className="w-full rounded-md border border-white/15 bg-black/30 p-3 font-mono text-xs leading-relaxed"
+        className="w-full rounded-md border border-line-strong bg-surface p-3 font-mono text-xs leading-relaxed"
       />
       <div className="flex flex-wrap items-center gap-3">
-        <label className="text-sm text-white/60">
+        <label className="text-sm text-muted">
           Drafted by{" "}
-          <select name="draftedBy" defaultValue="claude" className="ml-1 rounded border border-white/15 bg-black/30 px-2 py-1">
+          <select name="draftedBy" defaultValue="claude" className="ml-1 rounded border border-line-strong bg-surface px-2 py-1">
             <option value="claude">Claude</option>
             <option value="chatgpt">ChatGPT</option>
             <option value="gemini">Gemini</option>
             <option value="manual">Manual</option>
           </select>
         </label>
-        <button disabled={pending} className={`${btn} bg-emerald-500/90 text-black hover:bg-emerald-400`}>
+        <button disabled={pending} className={`${btn} bg-accent text-white hover:bg-accent-ink`}>
           {pending ? "Saving + reviewing… (up to a minute)" : "Save & review"}
         </button>
         <Status state={state} />
@@ -46,7 +46,7 @@ export function RerunReview({ topicId }: { topicId: string }) {
   return (
     <form action={action} className="flex flex-wrap items-center gap-3">
       <input type="hidden" name="topicId" value={topicId} />
-      <button disabled={pending} className={`${btn} border border-white/15 hover:bg-white/10`}>
+      <button disabled={pending} className={`${btn} border border-line-strong hover:bg-subtle`}>
         {pending ? "Reviewing…" : "Re-run review"}
       </button>
       <Status state={state} />
@@ -60,7 +60,7 @@ export function PushToPayload({ topicId, itemId, disabled, label }: { topicId: s
     <form action={action} className="flex flex-wrap items-center gap-3">
       <input type="hidden" name="topicId" value={topicId} />
       <input type="hidden" name="itemId" value={itemId} />
-      <button disabled={pending || disabled} className={`${btn} bg-sky-400/90 text-black hover:bg-sky-300`}>
+      <button disabled={pending || disabled} className={`${btn} bg-ink text-white hover:bg-body`}>
         {pending ? "Sending…" : label}
       </button>
       <Status state={state} />
@@ -76,7 +76,7 @@ function SimpleAction({ topicId, label, pendingLabel, act, disabled, primary }: 
   return (
     <form action={action} className="flex flex-wrap items-center gap-3">
       <input type="hidden" name="topicId" value={topicId} />
-      <button disabled={pending || disabled} className={`${btn} ${primary ? "bg-sky-400/90 text-black hover:bg-sky-300" : "border border-white/15 hover:bg-white/10"}`}>
+      <button disabled={pending || disabled} className={`${btn} ${primary ? "bg-ink text-white hover:bg-body" : "border border-line-strong hover:bg-subtle"}`}>
         {pending ? pendingLabel : label}
       </button>
       <Status state={state} />

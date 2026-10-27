@@ -11,7 +11,7 @@ export function CopyButton({ text, label = "Copy" }: { text: string; label?: str
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }}
-      className="rounded-md bg-emerald-500/90 px-3 py-1.5 text-sm text-black hover:bg-emerald-400"
+      className="rounded-md bg-accent px-3 py-1.5 text-sm text-white hover:bg-accent-ink"
     >
       {copied ? "Copied ✓" : label}
     </button>

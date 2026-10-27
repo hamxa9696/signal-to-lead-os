@@ -33,7 +33,7 @@ export default async function ReviewPage({ searchParams }: { searchParams: Promi
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">Monthly review</h1>
-          <p className="mt-1 text-sm text-white/60">
+          <p className="mt-1 text-sm text-muted">
             {month.slice(0, 7)} · generated on the 2nd of each month from the last 28 days of GA4 + Search Console.
           </p>
         </div>
@@ -41,7 +41,7 @@ export default async function ReviewPage({ searchParams }: { searchParams: Promi
           {months.length > 1 && (
             <div className="flex gap-1 text-sm">
               {months.map((x) => (
-                <Link key={x.month} href={`/review?month=${x.month}`} className={`rounded-md border px-2 py-1 ${x.month === month ? "border-white/40 bg-white/10" : "border-white/15 text-white/60"}`}>
+                <Link key={x.month} href={`/review?month=${x.month}`} className={`rounded-md border px-2 py-1 ${x.month === month ? "border-accent bg-subtle" : "border-line-strong text-muted"}`}>
                   {x.month.slice(0, 7)}
                 </Link>
               ))}
@@ -56,32 +56,32 @@ export default async function ReviewPage({ searchParams }: { searchParams: Promi
           const items = rows.filter((r) => r.kind === k.kind);
           return (
             <section key={k.kind}>
-              <h2 className="font-semibold">{k.title} <span className="text-white/40">({items.filter((i) => i.status === "open").length} open)</span></h2>
-              <p className="text-sm text-white/50">{k.help}</p>
+              <h2 className="font-semibold">{k.title} <span className="text-faint">({items.filter((i) => i.status === "open").length} open)</span></h2>
+              <p className="text-sm text-faint">{k.help}</p>
               <ul className="mt-3 space-y-3">
                 {items.map((r) => (
-                  <li key={r.id} className={`rounded-lg border border-white/10 p-4 ${r.status !== "open" ? "opacity-60" : ""}`}>
+                  <li key={r.id} className={`card p-4 ${r.status !== "open" ? "opacity-60" : ""}`}>
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-[14rem] flex-1">
                         <p lang="ja" className="font-medium">
                           <a href={`https://renesistech.jp${r.path}`} target="_blank" rel="noreferrer" className="hover:underline">{r.title ?? r.path}</a>
                         </p>
-                        <p className="truncate text-xs text-white/40">{r.path}</p>
-                        <p lang="ja" className="mt-2 text-sm text-white/70">{r.reason}</p>
+                        <p className="truncate text-xs text-faint">{r.path}</p>
+                        <p lang="ja" className="mt-2 text-sm text-body">{r.reason}</p>
                         {r.data.queries?.length ? (
-                          <p lang="ja" className="mt-1 text-xs text-white/50">
+                          <p lang="ja" className="mt-1 text-xs text-faint">
                             Queries: {r.data.queries.map((q) => `${q.query} (${q.impressions} imp, pos ${q.position.toFixed(1)})`).join(" · ")}
                           </p>
                         ) : null}
                       </div>
                       <div className="flex shrink-0 flex-wrap gap-2">
                         {r.topic_id ? (
-                          <Link href={`/topics/${r.topic_id}`} className="rounded-md bg-sky-400/90 px-3 py-1.5 text-sm text-black hover:bg-sky-300">Open task →</Link>
+                          <Link href={`/topics/${r.topic_id}`} className="rounded-md bg-ink px-3 py-1.5 text-sm text-white hover:bg-body">Open task →</Link>
                         ) : (
                           r.status === "open" && k.cta && (
                             <form action={actAction}>
                               <input type="hidden" name="id" value={r.id} />
-                              <button className="rounded-md bg-emerald-500/90 px-3 py-1.5 text-sm text-black hover:bg-emerald-400">{k.cta}</button>
+                              <button className="rounded-md bg-accent px-3 py-1.5 text-sm text-white hover:bg-accent-ink">{k.cta}</button>
                             </form>
                           )
                         )}
@@ -97,7 +97,7 @@ export default async function ReviewPage({ searchParams }: { searchParams: Promi
                     </div>
                   </li>
                 ))}
-                {!items.length && <li className="rounded-lg border border-white/10 px-4 py-4 text-sm text-white/40">Nothing this month.</li>}
+                {!items.length && <li className="card px-4 py-4 text-sm text-faint">Nothing this month.</li>}
               </ul>
             </section>
           );
@@ -112,7 +112,7 @@ function StatusButton({ id, status, label }: { id: string; status: string; label
     <form action={statusAction}>
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="status" value={status} />
-      <button className="rounded-md border border-white/15 px-3 py-1.5 text-sm hover:bg-white/10">{label}</button>
+      <button className="rounded-md border border-line-strong bg-surface px-3 py-1.5 text-sm hover:bg-subtle">{label}</button>
     </form>
   );
 }

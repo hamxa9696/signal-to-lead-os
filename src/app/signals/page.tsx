@@ -37,24 +37,24 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
       <h1 className="text-xl font-semibold">Signals</h1>
-      <p className="mt-1 text-sm text-white/60">News items collected from Japanese sources and scored by Gemini. Showing up to 200.</p>
+      <p className="mt-1 text-sm text-muted">News items collected from Japanese sources and scored by Gemini. Showing up to 200.</p>
 
       <div className="mt-4 flex flex-wrap gap-2 text-sm">
         {TABS.map((t) => (
           <Link
             key={t.key}
             href={`/signals?status=${t.key}`}
-            className={`rounded-md border px-3 py-1.5 ${t.key === status ? "border-white/40 bg-white/10" : "border-white/15 text-white/60 hover:bg-white/5"}`}
+            className={`rounded-md border px-3 py-1.5 ${t.key === status ? "border-accent bg-subtle" : "border-line-strong text-muted hover:bg-subtle"}`}
           >
             {t.label} ({n(t.key)})
           </Link>
         ))}
       </div>
 
-      <ul className="mt-4 divide-y divide-white/10 rounded-lg border border-white/10">
+      <ul className="mt-4 divide-y divide-white/10 card">
         {rows.map((r, i) => (
           <li key={i} className="px-4 py-3">
-            <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs text-white/40">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs text-faint">
               <span>{r.source} · {fmt(r.published_at)}</span>
               {r.relevance && <span className="tabular-nums">relevance {Number(r.relevance).toFixed(2)}</span>}
             </div>
@@ -62,15 +62,15 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
               {r.url ? <a href={r.url} target="_blank" rel="noreferrer" className="hover:underline">{r.title}</a> : r.title}
             </p>
             {(r.buyer_problem || r.angle || r.service) && (
-              <p lang="ja" className="mt-1 text-sm text-white/60">
-                {r.service && <span className="mr-2 rounded bg-white/10 px-1.5 py-0.5 text-xs">{r.service}</span>}
+              <p lang="ja" className="mt-1 text-sm text-muted">
+                {r.service && <span className="mr-2 rounded bg-subtle px-1.5 py-0.5 text-xs">{r.service}</span>}
                 {r.buyer_problem && <>課題: {r.buyer_problem} </>}
-                {r.angle && <span className="text-white/45">· 切り口: {r.angle}</span>}
+                {r.angle && <span className="text-faint">· 切り口: {r.angle}</span>}
               </p>
             )}
           </li>
         ))}
-        {!rows.length && <li className="px-4 py-6 text-sm text-white/40">Nothing here yet.</li>}
+        {!rows.length && <li className="px-4 py-6 text-sm text-faint">Nothing here yet.</li>}
       </ul>
     </main>
   );
