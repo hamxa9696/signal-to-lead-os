@@ -4,6 +4,7 @@ const LINKS = [
   { href: "/", label: "Status" },
   { href: "/topics", label: "Topics" },
   { href: "/signals", label: "Signals" },
+  { href: "/knowledge", label: "Knowledge" },
 ];
 
 export function Nav() {

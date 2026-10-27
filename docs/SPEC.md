@@ -1,6 +1,6 @@
 # Renesis Signal-to-Lead OS — Spec
 
-Status: **v0.2, phase 2 (signals + weekly shortlist)** · Owner: Renesis marketing · Last updated 2026-10-27
+Status: **v0.3, phase 3 (content workflow)** · Owner: Renesis marketing · Last updated 2026-10-27
 
 ## 1. Goal
 
@@ -138,6 +138,25 @@ news-driven ones, and at most 1 blockchain topic (the existing blog is almost al
 blockchain, while the main business is AI). Lead-magnet formats rotate
 (checklist → calculator → comparison → template → mini-report) without repeats within 4 weeks.
 
+## 4c. Phase 3 details
+
+Workspace per topic (`/topics/<id>`), four steps:
+1. **Prompt pack:** deterministic template (no AI call) with the assignment, outline, internal
+   links, background sources, output contract (YAML frontmatter + Markdown), the style guide,
+   banned phrases and fact sheet. Lead magnets get a format-specific spec.
+2. **Paste draft:** every paste becomes a new `content_versions` row (v1, v2, …).
+3. **Review:** automatic checks (frontmatter, length, H2 count, CMS-safe Markdown, keyword in title
+   and intro, banned phrases, unresolved `[要確認]`, Renesis link), plus a Gemini editor review
+   that scores each checklist item 1–5 and lists issues with quotes and fixes.
+   Passes when there are no blocking check failures, the overall score is ≥ 75, there are no high-severity
+   issues, and every checklist item scores ≥ 3. Otherwise you get a revision prompt to paste back
+   into the same chat. You can also accept a draft manually.
+4. **Payload:** Markdown → Lexical (same node shapes as existing posts, title as H1), then POST/PATCH
+   `/api/posts` with `status: draft`. Slug clashes and already-published posts are refused.
+   The daily `sync-publications` job marks the item published once an editor publishes it.
+
+Knowledge docs are editable at `/knowledge`.
+
 ## 5. Data model (summary — see `supabase/migrations`)
 
 `services`, `icps`, `knowledge_docs`, `sources`, `signals`, `search_queries_daily`, `topics`,
@@ -150,7 +169,7 @@ blockchain, while the main business is AI). Lead-magnet formats rotate
 |---|---|---|
 | 1 ✅ | **Foundations** — repo, schema, connection health page, account setup guide | All accounts connected, health page green |
 | 2 ✅ | Signals + weekly shortlist — RSS + GSC collectors, Gemini scoring, approve screen | A ranked topic list every Monday |
-| 3 | Content workflow — prompt packs, draft intake, Gemini review, Payload draft push, social copy + UTMs | Articles flow from topic to Payload draft |
+| 3 ✅ | Content workflow — prompt packs, draft intake, Gemini review, Payload draft push, social copy + UTMs | Articles flow from topic to Payload draft |
 | 4 | Lead-magnet pipeline — landing template, Payload form, Make → Brevo delivery | Downloads deliver by email; contacts stored |
 | 5 | Performance — GA4/GSC/forms daily pull, per-piece dashboard, scoring feedback | See traffic + form fills per piece |
 | 6 | Monthly review — refresh / expand / prune recommendations | Monthly action list |

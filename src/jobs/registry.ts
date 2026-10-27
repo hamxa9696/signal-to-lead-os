@@ -4,7 +4,19 @@ import { collectFeeds } from "./collect-feeds";
 import { collectGsc } from "./collect-gsc";
 import { analyzeSignals } from "./analyze-signals";
 import { makeWeeklyShortlist } from "./weekly-shortlist";
+import { syncPayloadPublications } from "@/lib/content/publish";
 import type { Job, JobResult } from "./types";
+
+const syncPublications: Job = {
+  name: "sync-publications",
+  description: "Mark Payload drafts as live once an editor publishes them",
+  async run() {
+    const r = await syncPayloadPublications();
+    return r.checked === 0 && r.nowLive === 0
+      ? { status: "ok", stats: r, note: "nothing waiting" }
+      : { status: "ok", stats: r };
+  },
+};
 
 export function jobGroups(opts: { force?: boolean } = {}): Record<string, Job[]> {
   const shortlist = makeWeeklyShortlist(opts);
@@ -13,7 +25,8 @@ export function jobGroups(opts: { force?: boolean } = {}): Record<string, Job[]>
     "collect-gsc": [collectGsc],
     analyze: [analyzeSignals],
     shortlist: [shortlist],
-    daily: [collectFeeds, collectGsc, analyzeSignals], // every morning
+    "sync-publications": [syncPublications],
+    daily: [collectFeeds, collectGsc, analyzeSignals, syncPublications], // every morning
     weekly: [shortlist], // Monday, after daily
   };
 }

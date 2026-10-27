@@ -10,10 +10,12 @@ export const env = {
   ga4PropertyId: process.env.GA4_PROPERTY_ID ?? "",
   gscSiteUrl: process.env.GSC_SITE_URL ?? "", // e.g. "sc-domain:renesistech.com" or "https://renesistech.com/"
 
-  payloadUrl: (process.env.PAYLOAD_URL ?? "").replace(/\/$/, ""),
+  payloadUrl: (process.env.PAYLOAD_URL || "https://renesistech.jp").replace(/\/$/, ""),
   payloadApiKey: process.env.PAYLOAD_API_KEY ?? "",
   payloadAuthCollection: process.env.PAYLOAD_AUTH_COLLECTION ?? "users",
   payloadPostsCollection: process.env.PAYLOAD_POSTS_COLLECTION ?? "posts",
+  payloadCategoryId: process.env.PAYLOAD_CATEGORY_ID ?? "", // category for new AI posts
+  payloadPlaceholderImageId: process.env.PAYLOAD_PLACEHOLDER_IMAGE_ID ?? "", // featured image until an editor picks one
 
   brevoApiKey: process.env.BREVO_API_KEY ?? "",
   makeWebhookUrl: process.env.MAKE_WEBHOOK_URL ?? "",

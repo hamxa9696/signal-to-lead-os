@@ -83,25 +83,23 @@ Local Postgres runs in Docker (`pnpm db:up && pnpm db:migrate`). When scheduled 
 Search Console shows history for the domain going back up to 16 months once verified.
 
 ## §6 Payload API user (website developer)
-The app creates **drafts only**, so it gets a dedicated, limited user.
-1. In the Payload config, make sure the auth collection (usually `users`) has
-   `auth: { useAPIKey: true }`.
-2. Create a user `signal-to-lead@renesistech.com` with a role that can **create and update
-   drafts in the blog/posts collection** and nothing else (no publish, no delete, no user admin).
-3. On that user, **Enable API Key** → copy the key.
-4. `.env`:
-   ```
-   PAYLOAD_URL=https://<payload admin host>        # without /admin or /api
-   PAYLOAD_API_KEY=...
-   PAYLOAD_AUTH_COLLECTION=users
-   PAYLOAD_POSTS_COLLECTION=posts                 # the blog collection's slug
-   ```
-5. Please also answer these for phase 3:
-   - Payload version (2.x or 3.x)?
-   - Blog collection's fields (title, slug, content, excerpt, meta, category, author…)?
-   - Rich-text editor: Lexical or Slate?
-   - Is Japanese a **locale** in the same collection, or a separate site/collection?
-   - Is `@payloadcms/plugin-form-builder` installed? (Needed for lead-magnet forms in phase 4.)
+What I could already confirm from the public API (renesistech.jp/api, 2026-10-27):
+- Collections: `users`, `media`, `categories`, `posts`, `comments`. Blog = `posts`.
+- Post fields: `title`, `slug`, `excerpt`, `featuredImage`, `category`, `content` (Lexical),
+  `featured`, `status`, `publishedAt`, `seo { metaTitle, metaDescription, ogImage, noIndex }`.
+- Anonymous visitors can only read posts with `status = published`, so a post created with
+  `status: draft` stays private until someone publishes it.
+- Only one category exists: **BlockChain**. Every post has a featured image.
+
+Developer steps:
+1. On the `users` collection, enable API keys: `auth: { useAPIKey: true }`.
+2. Create a user `signal-to-lead@renesistech.com` whose role can **create and update `posts`
+   with status `draft`**, and nothing else: no publishing, no deleting, no user admin.
+3. On that user, **Enable API Key** → copy the key → `.env`: `PAYLOAD_API_KEY=...`
+4. Create a category for AI content (e.g. `AI・DX`) → put its id in `PAYLOAD_CATEGORY_ID`.
+5. Pick a generic Renesis image in Media to use until an editor sets a real one → its id in
+   `PAYLOAD_PLACEHOLDER_IMAGE_ID`. Needed if `featuredImage` is a required field.
+6. Still unknown: whether `@payloadcms/plugin-form-builder` is installed (phase 4).
 
 ## §7 Brevo (sends lead-magnet emails)
 1. Sign up at https://www.brevo.com (free plan, ~300 emails/day).

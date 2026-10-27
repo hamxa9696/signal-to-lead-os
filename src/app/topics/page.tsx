@@ -89,7 +89,9 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
                   <span className={`rounded border px-1.5 py-0.5 ${STATUS_STYLE[t.status] ?? ""}`}>{t.status}</span>
                   {t.search_intent && <span className="text-white/40">{t.search_intent}</span>}
                 </div>
-                <h2 lang="ja" className="mt-2 text-lg font-medium">{t.title_ja}</h2>
+                <h2 lang="ja" className="mt-2 text-lg font-medium">
+                  <Link href={`/topics/${t.id}`} className="hover:underline">{t.title_ja}</Link>
+                </h2>
                 {t.title_en && <p className="text-sm text-white/50">{t.title_en}</p>}
               </div>
               <Score total={t.score} b={t.score_breakdown} />
@@ -127,7 +129,12 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
             <div className="mt-4 flex flex-wrap gap-2">
               {t.status !== "approved" && <StatusButton id={t.id} status="approved" label="Approve" primary />}
               {t.status !== "rejected" && <StatusButton id={t.id} status="rejected" label="Reject" />}
-              {t.status !== "proposed" && <StatusButton id={t.id} status="proposed" label="Undo" />}
+              {t.status !== "proposed" && t.status !== "in_progress" && t.status !== "done" && <StatusButton id={t.id} status="proposed" label="Undo" />}
+              {["approved", "in_progress", "done"].includes(t.status) && (
+                <Link href={`/topics/${t.id}`} className="rounded-md bg-sky-400/90 px-3 py-1.5 text-sm text-black hover:bg-sky-300">
+                  {t.status === "approved" ? "Start writing →" : "Open workspace →"}
+                </Link>
+              )}
             </div>
           </li>
         ))}

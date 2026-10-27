@@ -19,9 +19,11 @@ export async function setTopicStatus(form: FormData): Promise<void> {
   const id = String(form.get("id"));
   const status = String(form.get("status"));
   if (!["approved", "rejected", "proposed"].includes(status)) throw new Error("bad status");
+  // Topics with drafts in progress keep their status.
   await sql`
     update topics set status = ${status},
       decided_at = ${status === "proposed" ? null : sql`now()`}
-    where id = ${id}`;
+    where id = ${id} and status in ('proposed', 'approved', 'rejected')`;
   revalidatePath("/topics");
+  revalidatePath(`/topics/${id}`);
 }

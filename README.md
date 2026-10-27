@@ -21,7 +21,9 @@ pnpm job weekly          # Monday shortlist (add --force to regenerate)
 ```
 
 Pages: **Status** (connections, run buttons, job log) · **Topics** (weekly shortlist, approve /
-reject) · **Signals** (collected news with Gemini's scoring).
+reject) · **Topic workspace** (prompt pack → paste draft → checks + Gemini review → Payload draft) ·
+**Signals** (collected news with Gemini's scoring) · **Knowledge** (fact sheet, style guide, banned
+phrases, review checklist).
 
 ## Layout
 
@@ -30,6 +32,7 @@ docs/                  spec + setup guide
 supabase/migrations/   raw SQL schema (portable to Supabase)
 scripts/migrate.mjs    migration runner
 src/lib/               env · db · gemini · google (GA4/GSC) · payload · health checks
+src/lib/content/       prompt pack · draft parsing · checks · Gemini review · Markdown→Lexical · Payload publish
 src/jobs/              collect-feeds · collect-gsc · analyze-signals · weekly-shortlist · CLI runner
 src/app/               Next.js App Router — status, topics, signals + /api/health
 .github/workflows/     daily + Monday schedule
@@ -37,4 +40,5 @@ src/app/               Next.js App Router — status, topics, signals + /api/hea
 
 ## Status
 
-**Phase 2 — signals + weekly shortlist** done. Next: phase 3 (prompt packs, draft intake, Gemini review, Payload drafts).
+**Phase 3 — content workflow** done. Payload pushes need the API user from docs/SETUP.md §6.
+Next: phase 4 (lead-magnet files, landing pages, form → Brevo email delivery).
