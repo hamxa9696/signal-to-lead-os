@@ -10,7 +10,8 @@ const MAX_PER_RUN = 240; // keeps a daily run to ~6 calls on the free tier
 const IGNORE_BELOW = 0.35;
 const STALE_DAYS = 21;
 
-const Result = z.object({
+// Lighter models sometimes return the bare array instead of {"items": [...]}.
+const Result = z.preprocess((v) => (Array.isArray(v) ? { items: v } : v), z.object({
   items: z.array(
     z.object({
       i: z.number().int(),
@@ -20,7 +21,7 @@ const Result = z.object({
       angle: z.string().catch(""),
     }),
   ),
-});
+}));
 
 type Row = { id: string; title: string; summary: string | null; source: string };
 
@@ -77,10 +78,18 @@ export const analyzeSignals: Job = {
     let analyzed = 0;
     let ignored = 0;
     let missing = 0;
+    const failedBatches: string[] = [];
 
     for (let start = 0; start < pending.length; start += BATCH) {
       const batch = pending.slice(start, start + BATCH);
-      const { items } = await generateJson(prompt(services, batch), Result, { temperature: 0.1 });
+      let items: z.infer<typeof Result>["items"];
+      try {
+        ({ items } = await generateJson(prompt(services, batch), Result, { temperature: 0.1 }));
+      } catch (err) {
+        // Leave this batch as 'new' for the next run and carry on with the rest.
+        failedBatches.push((err as Error).message.slice(0, 300));
+        continue;
+      }
       const byIndex = new Map(items.map((it) => [it.i, it]));
 
       for (const [i, row] of batch.entries()) {
@@ -105,9 +114,16 @@ export const analyzeSignals: Job = {
       if (start + BATCH < pending.length) await new Promise((r) => setTimeout(r, 6_000));
     }
 
+    const batches = Math.ceil(pending.length / BATCH);
+    if (batches > 0 && failedBatches.length === batches) {
+      throw new Error(`every batch failed: ${failedBatches[0]}`);
+    }
     return {
       status: "ok",
-      stats: { pending: pending.length, analyzed, ignored, missing, markedStale: stale.length },
+      stats: {
+        pending: pending.length, analyzed, ignored, missing, markedStale: stale.length,
+        failedBatches: failedBatches.length, ...(failedBatches.length ? { lastError: failedBatches.at(-1) } : {}),
+      },
     };
   },
 };

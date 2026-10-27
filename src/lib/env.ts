@@ -3,7 +3,7 @@
 export const env = {
   databaseUrl: process.env.DATABASE_URL ?? "",
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
-  geminiModel: process.env.GEMINI_MODEL ?? "gemini-2.5-flash",
+  geminiModel: process.env.GEMINI_MODEL ?? "gemini-3.5-flash",
 
   // Google service account JSON (whole file contents, one line) — used for GA4 + Search Console.
   googleServiceAccountJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON ?? "",

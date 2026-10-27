@@ -4,6 +4,7 @@ import { env, has } from "./env";
 import { sql } from "./db";
 import { googleFetch, ga4ReportUrl, gscSiteUrl } from "./google";
 import { payloadFetch } from "./payload";
+import { GEMINI_MODELS } from "./gemini";
 
 export type Check = { name: string; ok: boolean; detail: string; setup: string };
 
@@ -25,7 +26,7 @@ export async function runHealthChecks(): Promise<Check[]> {
     }),
 
     run("Gemini", "SETUP.md §2", has(env.geminiApiKey) ? null : "GEMINI_API_KEY", async () =>
-      `key present, model ${env.geminiModel} (not test-called, saves quota)`),
+      `key present, model ${GEMINI_MODELS.join(" → ")} (not test-called, saves quota)`),
 
     run(
       "Google Analytics 4",

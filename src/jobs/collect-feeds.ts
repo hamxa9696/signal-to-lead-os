@@ -25,7 +25,7 @@ async function collectRss(src: Source): Promise<number> {
   }));
   const inserted = await sql`
     insert into signals ${sql(rows, "source_id", "external_id", "kind", "title", "url", "summary", "published_at")}
-    on conflict (source_id, external_id) do nothing
+    on conflict do nothing -- same guid from this feed, or same URL from another feed
     returning id`;
   return inserted.length;
 }

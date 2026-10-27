@@ -1,56 +1,72 @@
-// Gemini free-tier client. Used for signal analysis, topic scoring and the AI review pass.
-// Never send client/CRM personal data through the free tier.
+// Gemini free-tier client (plain REST). Used for signal analysis, topic scoring and the
+// AI review pass. Never send client/CRM personal data through the free tier.
 import "server-only";
-import { GoogleGenAI } from "@google/genai";
 import type { z } from "zod";
 import { env, has } from "./env";
 
-let client: GoogleGenAI | null = null;
-export function gemini(): GoogleGenAI {
-  if (!has(env.geminiApiKey)) throw new Error("GEMINI_API_KEY not set");
-  client ??= new GoogleGenAI({ apiKey: env.geminiApiKey });
-  return client;
+// Tried in order. Newer models are often overloaded (503) on the free tier, so a busy model
+// falls through to the next one instead of failing the job.
+export const GEMINI_MODELS = [
+  ...new Set([env.geminiModel, "gemini-3.5-flash", "gemini-3.5-flash-lite"].filter(Boolean)),
+];
+
+const API = "https://generativelanguage.googleapis.com/v1beta/models";
+const TIMEOUT_MS = 120_000;
+
+class GeminiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
 }
 
-export const GEMINI_MODEL = env.geminiModel;
-
-function responseText(res: unknown): string {
-  const r = res as { text?: unknown };
-  if (typeof r.text === "function") return (r.text as () => string)();
-  if (typeof r.text === "string") return r.text;
-  throw new Error("Gemini returned no text");
+async function callModel(model: string, prompt: string, temperature: number): Promise<string> {
+  const res = await fetch(`${API}/${model}:generateContent`, {
+    method: "POST",
+    headers: { "x-goog-api-key": env.geminiApiKey, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: "application/json", temperature },
+    }),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+  const body = (await res.json().catch(() => ({}))) as {
+    error?: { message?: string };
+    candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[];
+  };
+  if (!res.ok) throw new GeminiError(`${model}: ${res.status} ${body.error?.message ?? res.statusText}`, res.status);
+  const text = body.candidates?.[0]?.content?.parts?.filter((p) => !p.thought).map((p) => p.text ?? "").join("");
+  if (!text) throw new GeminiError(`${model}: empty response`, 502);
+  return text;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const isBusy = (e: unknown) => e instanceof GeminiError && [429, 500, 502, 503, 504].includes(e.status);
+const isTimeout = (e: unknown) => e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError");
 
-/**
- * Ask Gemini for JSON and validate it. Retries on rate limits / overload with backoff
- * (free tier allows only a few requests per minute).
- */
+/** Ask Gemini for JSON and validate it, falling back across models and retrying when busy. */
 export async function generateJson<S extends z.ZodTypeAny>(
   prompt: string,
   schema: S,
-  opts: { temperature?: number; attempts?: number } = {},
+  opts: { temperature?: number; rounds?: number } = {},
 ): Promise<z.infer<S>> {
-  const attempts = opts.attempts ?? 4;
-  let lastErr: unknown;
-  for (let i = 0; i < attempts; i++) {
-    try {
-      const res = await gemini().models.generateContent({
-        model: GEMINI_MODEL,
-        contents: prompt,
-        config: { responseMimeType: "application/json", temperature: opts.temperature ?? 0.2 },
-      });
-      const parsed = schema.safeParse(JSON.parse(responseText(res)));
-      if (parsed.success) return parsed.data;
-      lastErr = new Error(`Gemini JSON did not match schema: ${parsed.error.issues.slice(0, 3).map((x) => `${x.path.join(".")}: ${x.message}`).join("; ")}`);
-    } catch (err) {
-      lastErr = err;
-      const msg = String((err as Error).message ?? err);
-      const retryable = /429|RESOURCE_EXHAUSTED|503|UNAVAILABLE|overloaded|fetch failed/i.test(msg);
-      if (!retryable && !(err instanceof SyntaxError)) throw err;
+  if (!has(env.geminiApiKey)) throw new Error("GEMINI_API_KEY not set");
+  const rounds = opts.rounds ?? 3;
+  const errors: string[] = [];
+
+  for (let round = 0; round < rounds; round++) {
+    for (const model of GEMINI_MODELS) {
+      try {
+        const raw = await callModel(model, prompt, opts.temperature ?? 0.2);
+        const parsed = schema.safeParse(JSON.parse(raw));
+        if (parsed.success) return parsed.data;
+        errors.push(`${model}: JSON did not match schema (${parsed.error.issues.slice(0, 2).map((x) => `${x.path.join(".")}: ${x.message}`).join("; ")})`);
+      } catch (err) {
+        errors.push(String((err as Error).message ?? err));
+        // Wrong key / bad request won't get better on another model.
+        if (!isBusy(err) && !isTimeout(err) && !(err instanceof SyntaxError)) throw err;
+      }
     }
-    if (i < attempts - 1) await sleep(15_000 * (i + 1)); // 15s, 30s, 45s
+    if (round < rounds - 1) await sleep(20_000 * (round + 1)); // all models busy: back off
   }
-  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
+  throw new Error(`Gemini failed after ${rounds} rounds: ${errors.slice(-3).join(" | ")}`);
 }

@@ -30,7 +30,10 @@ const TopicOut = z.object({
   outline: z.array(z.string()).catch([]),
   cta: z.string().catch(""),
 });
-const Result = z.object({ topics: z.array(TopicOut).min(1) });
+const Result = z.preprocess(
+  (v) => (Array.isArray(v) ? { topics: v } : v), // bare array from lighter models
+  z.object({ topics: z.array(TopicOut).min(1) }),
+);
 
 type SignalRow = { id: string; title: string; buyer_problem: string | null; angle: string | null; service: string | null; published_at: Date | null };
 type QueryRow = { query: string; impressions: number; clicks: number; position: number };

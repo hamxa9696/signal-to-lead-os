@@ -50,7 +50,7 @@ form_submissions (Payload forms) ─► linked to page + UTM ─► dashboard
 - Configured in the `sources` table; adding a feed is a row, not code.
 
 ### 3.2 Gemini analysis (automated, free tier)
-- Model: `gemini-2.5-flash` (configurable). Batched once per day / week to respect free limits.
+- Model: `gemini-3.5-flash` (configurable). Batched once per day / week to respect free limits.
 - For each new signal: tag ICP + service, extract buyer problem, score.
 - **Topic score** = search demand (GSC impressions / keyword evidence) + service fit + freshness
   + past performance of similar topics. Breakdown stored in `topics.score_breakdown`.
