@@ -6,6 +6,7 @@ import { CopyButton } from "../copy-button";
 import { SetupBrevo, TestMake } from "./buttons";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 300; // Gemini and PDF actions can take minutes
 
 type Sub = { received_at: Date; email: string | null; name: string | null; company: string | null; title: string | null; utm: { source?: string } | null };
 

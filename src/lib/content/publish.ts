@@ -6,6 +6,7 @@ import { env, has } from "@/lib/env";
 import { payloadFetch } from "@/lib/payload";
 import type { Frontmatter } from "./draft";
 import { markdownToLexical } from "./lexical";
+import { lexicalToMarkdown } from "./lexical-to-md";
 
 const SITE = "https://renesistech.jp";
 
@@ -119,4 +120,19 @@ export async function syncPayloadPublications(): Promise<{ checked: number; nowL
     }
   }
   return { checked: pubs.length, nowLive };
+}
+
+/** A published post's current content via the public API (no key needed). Used for refreshes. */
+export async function fetchLivePost(path: string): Promise<{ id: string; title: string; markdown: string; url: string }> {
+  const slug = path.split("/").filter(Boolean).pop() ?? "";
+  const res = await fetch(
+    `${env.payloadUrl}/api/${env.payloadPostsCollection}?where[slug][equals]=${encodeURIComponent(slug)}&limit=1&depth=0`,
+    { signal: AbortSignal.timeout(15_000) },
+  );
+  if (!res.ok) throw new Error(`Payload ${res.status}`);
+  const body = (await res.json()) as { docs?: { id: string; title: string; slug: string; content: unknown }[] };
+  const doc = body.docs?.[0];
+  if (!doc) throw new Error(`no published post with slug ${slug}`);
+  const md = lexicalToMarkdown(doc.content as never).replace(/^# .*\n+/, ""); // drop the H1 title
+  return { id: doc.id, title: doc.title, markdown: md, url: `${SITE}/blog/${doc.slug}` };
 }

@@ -17,7 +17,8 @@ const MAGNET_SPECS: Record<string, string> = {
     "A 2,000–3,000 character mini report: ## 要約 (3 bullets), ## 背景, ## 主なポイント (3–5 H3 findings), ## 日本企業への示唆, ## 次の一手. Cite the background sources by name where you use them.",
 };
 
-export function buildPromptPack(t: TopicFull, k: Knowledge): string {
+export function buildPromptPack(t: TopicFull, k: Knowledge, existing?: { markdown: string; url: string } | null): string {
+  if (t.origin === "refresh") return buildRefreshPack(t, k, existing ?? null);
   const isMagnet = t.kind === "lead_magnet";
   const links = [
     t.service_url && `- ${t.service_name}: ${t.service_url}`,
@@ -100,6 +101,58 @@ export function buildPromptPack(t: TopicFull, k: Knowledge): string {
     isMagnet
       ? "Markdown only. Do not include an H1 (the title is added automatically). No images or HTML."
       : "Markdown only: ## / ### headings, paragraphs, - and 1. lists, **bold**, [links](url). No H1, no tables, no images, no code blocks, no HTML.",
+    "",
+    "---",
+    "## STYLE GUIDE",
+    k.styleGuide || "(empty)",
+    "",
+    "## PHRASES YOU MUST NOT USE",
+    k.bannedPhrases.map((p) => `- ${p}`).join("\n") || "(none)",
+    "",
+    "## FACT SHEET",
+    k.factSheet || "(empty)",
+  ].join("\n");
+}
+
+/** Rewrite of an existing live article that ranks on page 2 of Google. */
+function buildRefreshPack(t: TopicFull, k: Knowledge, existing: { markdown: string; url: string } | null): string {
+  return [
+    `You are a senior Japanese B2B content editor for Renesis Tech Japan (${SITE}).`,
+    "Update the EXISTING ARTICLE below so it can reach page 1 of Google for the target queries.",
+    "Keep what is accurate and useful; fix what is weak. Follow the STYLE GUIDE and use ONLY facts from the FACT SHEET.",
+    "If you need a number or claim you cannot support, write [要確認] right after it.",
+    "",
+    "## Why this page",
+    `- ${t.rationale ?? "Ranks on page 2 of Google."}`,
+    `- URL: ${existing?.url ?? SITE + (t.target_path ?? "")}`,
+    `- Main query: ${t.primary_keyword ?? "-"}`,
+    `- Other queries it appears for: ${t.secondary_keywords.join("、") || "-"}`,
+    "",
+    "## What to change",
+    "- Make the title and first two paragraphs answer the main query directly.",
+    "- Add sections or FAQs that cover the other queries where they genuinely fit.",
+    "- Update anything outdated; remove filler and repetition; strengthen specifics.",
+    "- Keep the same slug (the URL must not change). Target 4,000–6,000 Japanese characters.",
+    "- End with ## まとめ and a CTA paragraph linking to the matching service page or the free AI業務診断.",
+    "",
+    "## Output format (exactly this, nothing before or after)",
+    "```",
+    "---",
+    "title: 更新後のタイトル（40字以内、主キーワードを含む）",
+    `slug: ${t.target_path?.split("/").pop() ?? "same-slug-as-before"}`,
+    "meta_title: 検索結果用タイトル（32字以内）",
+    "meta_description: 検索結果用説明文（80〜120字）",
+    "excerpt: 一覧ページ用の要約（100〜150字）",
+    "---",
+    "",
+    "## 最初の見出し",
+    "",
+    "本文…",
+    "```",
+    "Markdown only: ## / ### headings, paragraphs, - and 1. lists, **bold**, [links](url). No H1, no tables, no images, no HTML.",
+    "",
+    "## EXISTING ARTICLE",
+    existing?.markdown?.slice(0, 20000) || "(could not load the current text: open the URL above and paste it below this line)",
     "",
     "---",
     "## STYLE GUIDE",

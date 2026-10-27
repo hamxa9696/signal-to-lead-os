@@ -1,6 +1,6 @@
 # Renesis Signal-to-Lead OS — Spec
 
-Status: **v0.5, phase 5 (performance feedback)** · Owner: Renesis marketing · Last updated 2026-10-27
+Status: **v0.6, phase 6 (monthly review) · deployed on Vercel + Supabase** · Owner: Renesis marketing · Last updated 2026-10-27
 
 ## 1. Goal
 
@@ -192,6 +192,26 @@ data, not today, so reporting lag doesn't look like a drop.
 - The shortlist prompt also gets a "what worked (last 28 days)" list of the best pages, so
   Gemini proposes more of what earns traffic and leads.
 
+## 4e. Phase 6 details
+
+`monthly-review` runs on the 2nd of each month (also via "Regenerate now") over the last 28 days:
+- **Refresh:** average position 8–20 with ≥ 50 impressions. "Create rewrite task" makes an
+  approved topic (`origin = refresh`) whose prompt pack contains the live article (fetched from
+  Payload's public API and converted Lexical → Markdown) and its top queries. The rewrite is pasted
+  into the live post in the Payload admin; the API user only creates drafts.
+- **Expand:** the top 20% of pages by value (sessions + 30 × leads), ≥ 30 sessions, and queries they show up for
+  at position > 10 with ≥ 20 impressions that no existing title covers. "Add to next week"
+  creates a proposed topic. Pages already flagged for refresh are skipped.
+- **Prune:** older than 90 days with ≤ 10 sessions and ≤ 50 impressions. These are merged, rewritten or noindexed in Payload.
+
+## 4f. Hosting
+
+- **Vercel** (Next.js), behind **Supabase Auth** magic-link login, limited to `ALLOWED_EMAILS`
+  (same `@supabase/ssr` + `src/proxy.ts` pattern as Musubi CRM). In production the app fails closed if auth isn't configured.
+- **Supabase** Postgres via the transaction pooler (`prepare: false`), and Storage for PDFs.
+- PDFs render on Vercel with `@sparticuz/chromium` into `/tmp` and upload immediately.
+- Scheduled jobs stay on GitHub Actions (daily / Monday / 2nd of month) against the same database.
+
 ## 5. Data model (summary — see `supabase/migrations`)
 
 `services`, `icps`, `knowledge_docs`, `sources`, `signals`, `search_queries_daily`, `topics`,
@@ -207,7 +227,7 @@ data, not today, so reporting lag doesn't look like a drop.
 | 3 ✅ | Content workflow — prompt packs, draft intake, Gemini review, Payload draft push, social copy + UTMs | Articles flow from topic to Payload draft |
 | 4 ✅ | Lead-magnet pipeline — landing template, Payload form, Make → Brevo delivery | Downloads deliver by email; contacts stored |
 | 5 ✅ | Performance — GA4/GSC/forms daily pull, per-piece dashboard, scoring feedback | See traffic + form fills per piece |
-| 6 | Monthly review — refresh / expand / prune recommendations | Monthly action list |
+| 6 ✅ | Monthly review — refresh / expand / prune recommendations | Monthly action list |
 
 ## 7. Open questions
 1. **Payload**: version (2 or 3), posts collection slug + fields, rich-text editor (Lexical?),

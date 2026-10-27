@@ -1,10 +1,13 @@
 import Link from "next/link";
+import { authConfigured } from "@/lib/auth";
+import { signOut } from "./login/actions";
 
 const LINKS = [
   { href: "/", label: "Status" },
   { href: "/topics", label: "Topics" },
   { href: "/signals", label: "Signals" },
   { href: "/performance", label: "Performance" },
+  { href: "/review", label: "Monthly review" },
   { href: "/delivery", label: "Delivery" },
   { href: "/knowledge", label: "Knowledge" },
 ];
@@ -19,6 +22,11 @@ export function Nav() {
             {l.label}
           </Link>
         ))}
+        {authConfigured() && (
+          <form action={signOut} className="ml-auto">
+            <button className="text-sm text-white/40 hover:text-white">Sign out</button>
+          </form>
+        )}
       </div>
     </nav>
   );

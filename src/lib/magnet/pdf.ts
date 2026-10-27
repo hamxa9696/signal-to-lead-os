@@ -1,13 +1,24 @@
 // Lead magnet Markdown → branded A4 PDF, rendered by the local Chrome (puppeteer-core).
 import "server-only";
 import { mkdirSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { marked } from "marked";
 import puppeteer from "puppeteer-core";
 import { env } from "@/lib/env";
 import type { Frontmatter } from "@/lib/content/draft";
 
-export const EXPORT_DIR = join(process.cwd(), "exports", "lead-magnets");
+// Vercel functions can only write to /tmp (and it doesn't persist), so PDFs are uploaded right after.
+export const EXPORT_DIR = process.env.VERCEL ? join(tmpdir(), "lead-magnets") : join(process.cwd(), "exports", "lead-magnets");
+
+async function launchBrowser() {
+  if (process.env.VERCEL) {
+    // Serverless: bundled headless Chromium.
+    const chromium = (await import("@sparticuz/chromium")).default;
+    return puppeteer.launch({ executablePath: await chromium.executablePath(), args: chromium.args, headless: true });
+  }
+  return puppeteer.launch({ executablePath: env.chromePath, headless: true, args: ["--no-first-run"] });
+}
 const SITE = "https://renesistech.jp";
 
 const FORMAT_LABEL: Record<string, string> = {
@@ -91,7 +102,7 @@ export function magnetHtml(p: {
 export async function renderPdf(html: string, slug: string): Promise<{ path: string; bytes: number; pages: number }> {
   mkdirSync(EXPORT_DIR, { recursive: true });
   const path = join(EXPORT_DIR, `${slug}.pdf`);
-  const browser = await puppeteer.launch({ executablePath: env.chromePath, headless: true, args: ["--no-first-run"] });
+  const browser = await launchBrowser();
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "load", timeout: 60_000 });

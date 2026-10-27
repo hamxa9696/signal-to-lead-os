@@ -1,6 +1,7 @@
 // Collect RSS/Atom news items into `signals`, and our own sitemap into `site_pages`.
 import { sql } from "@/lib/db";
 import { fetchXml, parseFeed, parseSitemap } from "@/lib/feeds";
+import { env } from "@/lib/env";
 import type { Job } from "./types";
 
 // Skip items older than this: stale news is not worth a Gemini call.
@@ -50,6 +51,21 @@ async function collectOwnSitemap(src: Source): Promise<number> {
   await sql`
     insert into site_pages ${sql(rows, "url", "path", "section", "title", "lastmod")}
     on conflict (url) do update set lastmod = excluded.lastmod, last_seen = now()`;
+
+  // Real Japanese titles for blog posts from Payload's public API (better duplicate detection).
+  try {
+    const res = await fetch(`${env.payloadUrl}/api/${env.payloadPostsCollection}?limit=500&depth=0&select[title]=true&select[slug]=true`, {
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (res.ok) {
+      const { docs = [] } = (await res.json()) as { docs?: { slug: string; title: string }[] };
+      for (const d of docs) {
+        await sql`update site_pages set title = ${d.title} where path = ${`/blog/${d.slug}`}`;
+      }
+    }
+  } catch {
+    // titles stay slug-based until the next run
+  }
   return rows.length;
 }
 

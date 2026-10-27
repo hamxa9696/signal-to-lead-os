@@ -6,6 +6,7 @@ on:
   schedule:
     - cron: "0 21 * * *"   # daily 06:00 JST — collect + analyze
     - cron: "30 21 * * 0"  # Monday 06:30 JST — weekly shortlist
+    - cron: "0 23 1 * *"   # 2nd of the month 08:00 JST — monthly review (after the 1st's data lands)
   workflow_dispatch:
     inputs:
       job:
@@ -13,7 +14,7 @@ on:
         required: true
         default: daily
         type: choice
-        options: [daily, weekly, collect-feeds, collect-gsc, collect-ga4, analyze, shortlist, sync-publications, sync-brevo]
+        options: [daily, weekly, monthly, collect-feeds, collect-gsc, collect-ga4, analyze, shortlist, sync-publications, sync-brevo]
       force:
         description: "Regenerate this week's shortlist even if it exists"
         type: boolean
@@ -71,6 +72,8 @@ jobs:
             [ "${{ inputs.force }}" = "true" ] && echo "flags=--force" >> "$GITHUB_OUTPUT" || true
           elif [ "${{ github.event.schedule }}" = "30 21 * * 0" ]; then
             echo "job=weekly" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "0 23 1 * *" ]; then
+            echo "job=monthly" >> "$GITHUB_OUTPUT"
           else
             echo "job=daily" >> "$GITHUB_OUTPUT"
           fi

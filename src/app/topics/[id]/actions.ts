@@ -62,7 +62,7 @@ export async function buildPdfAction(_prev: ActionState, form: FormData): Promis
     const { buildMagnetPdf } = await import("@/lib/magnet/workflow");
     const r = await buildMagnetPdf(id);
     revalidatePath(path(id));
-    return { ok: true, message: `PDF built: ${r.pages} pages, ${(r.bytes / 1024).toFixed(0)} KB` };
+    return { ok: true, message: `PDF built: ${r.pages} pages, ${(r.bytes / 1024).toFixed(0)} KB${r.url ? " · uploaded" : ""}` };
   } catch (err) {
     return fail(err);
   }

@@ -3,7 +3,7 @@ import "server-only";
 import { sql } from "@/lib/db";
 import type { Frontmatter } from "@/lib/content/draft";
 import { magnetHtml, renderPdf } from "./pdf";
-import { uploadPdf } from "./storage";
+import { storageReady, uploadPdf } from "./storage";
 
 type MagnetRow = {
   item_id: string; status: string; version_id: string; body_md: string; frontmatter: Frontmatter;
@@ -23,7 +23,7 @@ async function loadMagnet(topicId: string): Promise<MagnetRow> {
   return row;
 }
 
-export async function buildMagnetPdf(topicId: string): Promise<{ bytes: number; pages: number }> {
+export async function buildMagnetPdf(topicId: string): Promise<{ bytes: number; pages: number; url: string | null }> {
   const m = await loadMagnet(topicId);
   if (m.status !== "ready" && m.status !== "published") throw new Error("the lead magnet must pass review (or be accepted) first");
   const slug = m.frontmatter.slug;
@@ -35,8 +35,15 @@ export async function buildMagnetPdf(topicId: string): Promise<{ bytes: number; 
     values (${m.item_id}, ${m.version_id}, ${slug}, ${r.path}, ${r.bytes}, ${r.pages})
     on conflict (content_item_id) do update set
       version_id = excluded.version_id, slug = excluded.slug, local_path = excluded.local_path,
-      bytes = excluded.bytes, pages = excluded.pages, created_at = now()`;
-  return { bytes: r.bytes, pages: r.pages };
+      bytes = excluded.bytes, pages = excluded.pages, created_at = now(),
+      public_url = null, uploaded_at = null`;
+  // On Vercel the local file disappears after this request, so upload straight away.
+  let url: string | null = null;
+  if (storageReady().ok) {
+    url = await uploadPdf(r.path, slug);
+    await sql`update magnet_files set public_url = ${url}, uploaded_at = now() where content_item_id = ${m.item_id}`;
+  }
+  return { bytes: r.bytes, pages: r.pages, url };
 }
 
 export async function uploadMagnetPdf(topicId: string): Promise<string> {

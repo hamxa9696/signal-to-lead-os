@@ -16,6 +16,9 @@
     "job": "node --env-file-if-exists=.env --conditions=react-server --import tsx src/jobs/run.ts"
   },
   "dependencies": {
+    "@sparticuz/chromium": "^153.0.0",
+    "@supabase/ssr": "0.12.3",
+    "@supabase/supabase-js": "^2.118.0",
     "fast-xml-parser": "^5.11.2",
     "google-auth-library": "^9.15.0",
     "marked": "^18.1.2",

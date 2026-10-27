@@ -3,6 +3,7 @@ import { runHealthChecks } from "@/lib/health";
 import { RunButton } from "./run-button";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 300; // Gemini and PDF actions can take minutes
 
 type RunRow = { job: string; status: string; started_at: Date; stats: Record<string, unknown> | null; error: string | null };
 

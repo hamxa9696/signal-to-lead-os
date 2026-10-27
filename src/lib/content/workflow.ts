@@ -7,6 +7,7 @@ import { getKnowledge } from "./knowledge";
 import { buildPromptPack } from "./prompt-pack";
 import { reviewDraft, type ReviewResult } from "./review";
 import { getTopic } from "./topic";
+import { fetchLivePost } from "./publish";
 
 export const DRAFTED_BY = ["claude", "chatgpt", "gemini", "manual"] as const;
 export type DraftedBy = (typeof DRAFTED_BY)[number];
@@ -20,7 +21,8 @@ export async function ensurePromptPack(topicId: string, rebuild = false): Promis
       select prompt_pack from briefs where topic_id = ${topicId} order by created_at desc limit 1`;
     if (b) return b.prompt_pack;
   }
-  const pack = buildPromptPack(t, await getKnowledge());
+  const existing = t.origin === "refresh" && t.target_path ? await fetchLivePost(t.target_path).catch(() => null) : null;
+  const pack = buildPromptPack(t, await getKnowledge(), existing ? { markdown: existing.markdown, url: existing.url } : null);
   await sql`insert into briefs (topic_id, prompt_pack) values (${topicId}, ${pack})`;
   return pack;
 }

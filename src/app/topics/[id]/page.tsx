@@ -15,6 +15,7 @@ import { env, has } from "@/lib/env";
 import { pagePerformance, sourcesForPath, topQueriesForPath } from "@/lib/performance";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 300; // Gemini and PDF actions can take minutes
 
 type Item = { id: string; status: string; title: string; slug: string | null; current_version_id: string | null };
 type Version = {
@@ -161,8 +162,10 @@ export default async function TopicWorkspace({ params }: { params: Promise<{ id:
           )}
 
           {item && (
-            <Section n={4} title={isArticle ? "Send to Payload as a draft" : "PDF, download link and landing page"} done={pub?.status === "live"}>
-              {!isArticle ? (
+            <Section n={4} title={topic.origin === "refresh" ? "Update the live post" : isArticle ? "Send to Payload as a draft" : "PDF, download link and landing page"} done={pub?.status === "live"}>
+              {topic.origin === "refresh" ? (
+                <RefreshFinish markdown={current?.body_md ?? ""} path={topic.target_path} ready={item.status === "ready"} />
+              ) : !isArticle ? (
                 <MagnetSteps
                   topicId={id}
                   itemId={item.id}
@@ -315,6 +318,28 @@ function ReviewView({ review, humanChecked }: { review: ReviewResult | null; hum
           </ol>
         </div>
       )}
+    </div>
+  );
+}
+
+async function RefreshFinish({ markdown, path, ready }: { markdown: string; path: string | null; ready: boolean }) {
+  const { fetchLivePost, adminUrl } = await import("@/lib/content/publish");
+  const live = path ? await fetchLivePost(path).catch(() => null) : null;
+  return (
+    <div className="space-y-2 text-sm text-white/60">
+      <p>
+        The post is already live, and the API user may only create drafts, so the rewrite is applied in the Payload admin:
+        copy the Markdown, open the post, replace the body, check the title and meta, then save.
+      </p>
+      {!ready && <p className="text-white/50">Available once the review passes (or you accept it).</p>}
+      <div className="flex flex-wrap gap-2">
+        {ready && <CopyButton text={markdown} label="Copy rewritten Markdown" />}
+        {live && (
+          <a href={adminUrl(live.id)} target="_blank" rel="noreferrer" className="rounded-md border border-white/15 px-3 py-1.5 hover:bg-white/10">
+            Open live post in Payload admin
+          </a>
+        )}
+      </div>
     </div>
   );
 }

@@ -23,8 +23,8 @@ pnpm job weekly          # Monday shortlist (add --force to regenerate)
 Pages: **Status** (connections, run buttons, job log) · **Topics** (weekly shortlist, approve /
 reject) · **Topic workspace** (prompt pack → paste draft → checks + Gemini review → Payload draft) ·
 **Signals** (collected news with Gemini's scoring) · **Performance** (traffic, search, leads per
-piece; what the scoring learns) · **Delivery** (Brevo setup, Make test,
-downloads) · **Knowledge** (fact sheet, style guide, banned
+piece; what the scoring learns) · **Monthly review** (refresh / expand /
+prune) · **Delivery** (Brevo setup, Make test, downloads) · **Knowledge** (fact sheet, style guide, banned
 phrases, review checklist).
 
 ## Layout
@@ -50,4 +50,4 @@ src/app/               Next.js App Router — status, topics, signals + /api/hea
 Going live needs: Payload API user + 2 categories (§6), Brevo sender (§7), Make scenario (§8, docs/MAKE.md),
 Supabase (§9), and the form component on the website (integrations/website).
 **Phase 5 — performance feedback** done (GA4 + Search Console per piece → performance points in the weekly score).
-Next: phase 6 (monthly review: refresh / expand / prune recommendations).
+**Phase 6 — monthly review** done. All six phases are built. Hosted on Vercel behind Supabase login.

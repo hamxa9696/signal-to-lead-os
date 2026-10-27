@@ -7,6 +7,7 @@ import { makeWeeklyShortlist } from "./weekly-shortlist";
 import { syncPayloadPublications } from "@/lib/content/publish";
 import { syncBrevo } from "./sync-brevo";
 import { collectGa4 } from "./collect-ga4";
+import { monthlyReview } from "./monthly-review";
 import type { Job, JobResult } from "./types";
 
 const syncPublications: Job = {
@@ -32,6 +33,8 @@ export function jobGroups(opts: { force?: boolean } = {}): Record<string, Job[]>
     "collect-ga4": [collectGa4],
     daily: [collectFeeds, collectGsc, collectGa4, analyzeSignals, syncPublications, syncBrevo], // every morning
     weekly: [shortlist], // Monday, after daily
+    "monthly-review": [monthlyReview],
+    monthly: [monthlyReview], // 1st of the month
   };
 }
 
