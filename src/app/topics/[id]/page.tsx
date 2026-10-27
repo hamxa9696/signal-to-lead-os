@@ -12,6 +12,7 @@ import { markReadyAction, rebuildPackAction } from "./actions";
 import { BuildPdf, DraftForm, PushToPayload, RerunReview, UploadPdf } from "./forms";
 import { downloadBaseUrl, storageReady } from "@/lib/magnet/storage";
 import { env, has } from "@/lib/env";
+import { pagePerformance, sourcesForPath, topQueriesForPath } from "@/lib/performance";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ type Version = {
   id: string; version: number; drafted_by: string; created_at: Date; review_passed: boolean | null;
   human_checked: boolean; body_md: string; review: ReviewResult | null;
 };
-type Pub = { external_id: string | null; url: string | null; status: string; published_at: Date | null };
+type Pub = { external_id: string | null; url: string | null; status: string; published_at: Date | null; page_path: string | null };
 type MagnetFile = { slug: string; bytes: number; pages: number | null; public_url: string | null; version_id: string; created_at: Date };
 
 const ITEM_STATUS: Record<string, string> = {
@@ -67,7 +68,7 @@ export default async function TopicWorkspace({ params }: { params: Promise<{ id:
     : [];
   const current = versions.find((v) => v.id === item?.current_version_id) ?? versions[0];
   const [pub] = item
-    ? await sql<Pub[]>`select external_id, url, status, published_at from publications where content_item_id = ${item.id} and channel = 'website'`
+    ? await sql<Pub[]>`select external_id, url, status, published_at, page_path from publications where content_item_id = ${item.id} and channel = 'website'`
     : [];
   const [file] = item
     ? await sql<MagnetFile[]>`select slug, bytes, pages, public_url, version_id, created_at from magnet_files where content_item_id = ${item.id}`
@@ -198,9 +199,60 @@ export default async function TopicWorkspace({ params }: { params: Promise<{ id:
               )}
             </Section>
           )}
+          {pub?.status === "live" && pub.page_path && <Results path={pub.page_path} publishedAt={pub.published_at} />}
         </div>
       )}
     </main>
+  );
+}
+
+async function Results({ path, publishedAt }: { path: string; publishedAt: Date | null }) {
+  const [rows, queries, sources] = await Promise.all([pagePerformance(28), topQueriesForPath(path), sourcesForPath(path)]);
+  const r = rows.find((x) => x.path === path);
+  const stat = (label: string, v: string) => (
+    <div className="rounded-md bg-white/[0.03] p-2">
+      <p className="text-xs text-white/50">{label}</p>
+      <p className="text-lg font-semibold tabular-nums">{v}</p>
+    </div>
+  );
+  return (
+    <section className="rounded-lg border border-white/10 p-4">
+      <h2 className="font-semibold">Results (last 28 days)</h2>
+      <p className="text-xs text-white/40">Published {publishedAt ? new Date(publishedAt).toISOString().slice(0, 10) : "-"} · {path}</p>
+      <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-5">
+        {stat("Sessions", (r?.sessions ?? 0).toLocaleString())}
+        {stat("Engaged", r?.engaged_rate != null ? `${Math.round(r.engaged_rate * 100)}%` : "-")}
+        {stat("Leads", String((r?.leads ?? 0) + (r?.downloads ?? 0)))}
+        {stat("Search clicks", (r?.clicks ?? 0).toLocaleString())}
+        {stat("Avg position", r?.position != null ? r.position.toFixed(1) : "-")}
+      </div>
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <div className="min-w-0">
+          <h3 className="text-sm font-medium text-white/80">Top search queries</h3>
+          <ul lang="ja" className="mt-1 space-y-0.5 text-sm">
+            {queries.map((q) => (
+              <li key={q.query} className="flex min-w-0 justify-between gap-3">
+                <span className="min-w-0 truncate">{q.query}</span>
+                <span className="shrink-0 tabular-nums text-white/50">{q.impressions} imp · {q.clicks} clk · {q.position.toFixed(1)}</span>
+              </li>
+            ))}
+            {!queries.length && <li className="text-white/40">No search data yet.</li>}
+          </ul>
+        </div>
+        <div className="min-w-0">
+          <h3 className="text-sm font-medium text-white/80">Traffic sources</h3>
+          <ul className="mt-1 space-y-0.5 text-sm">
+            {sources.map((s) => (
+              <li key={s.source_medium} className="flex min-w-0 justify-between gap-3">
+                <span className="min-w-0 truncate">{s.source_medium}</span>
+                <span className="shrink-0 tabular-nums text-white/50">{s.sessions}</span>
+              </li>
+            ))}
+            {!sources.length && <li className="text-white/40">No GA4 data yet.</li>}
+          </ul>
+        </div>
+      </div>
+    </section>
   );
 }
 

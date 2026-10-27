@@ -20,7 +20,7 @@ type Topic = {
   score: string | null;
   score_breakdown: {
     demand: number; demand_source: string; gsc_impressions_28d: number;
-    fit: number; freshness: number; performance: number;
+    fit: number; freshness: number; performance: number; performance_note?: string;
   } | null;
   rationale: string | null;
   outline: string[] | null;
@@ -163,14 +163,14 @@ function Score({ total, b }: { total: string | null; b: Topic["score_breakdown"]
     { k: "Demand", v: b.demand, max: SCORE_MAX.demand, note: b.demand_source === "search_console" ? `${b.gsc_impressions_28d} imp/28d` : "estimate" },
     { k: "Fit", v: b.fit, max: SCORE_MAX.fit },
     { k: "Fresh", v: b.freshness, max: SCORE_MAX.freshness },
-    { k: "Perf.", v: b.performance, max: SCORE_MAX.performance, note: "from phase 5" },
+    { k: "Perf.", v: b.performance, max: SCORE_MAX.performance, note: b.performance_note ? (b.performance_note.startsWith("no history") ? "no history" : "past pieces") : "not scored", title: b.performance_note },
   ];
   return (
     <div className="w-44 shrink-0 text-xs">
       <div className="text-right text-2xl font-semibold tabular-nums">{Math.round(Number(total))}<span className="text-sm text-white/40">/100</span></div>
       <dl className="mt-1 space-y-1">
         {parts.map((p) => (
-          <div key={p.k} title={p.note}>
+          <div key={p.k} title={("title" in p && p.title) || p.note}>
             <div className="flex justify-between text-white/50"><dt>{p.k}{p.note ? ` (${p.note})` : ""}</dt><dd className="tabular-nums">{p.v}/{p.max}</dd></div>
             <div className="h-1 rounded bg-white/10"><div className="h-1 rounded bg-emerald-400/70" style={{ width: `${(100 * p.v) / p.max}%` }} /></div>
           </div>

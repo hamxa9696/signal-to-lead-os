@@ -5,12 +5,13 @@ import { sql } from "@/lib/db";
 import { env, has } from "@/lib/env";
 import { generateJson } from "@/lib/gemini";
 import { weekOf } from "@/lib/week";
+import { groupPerformance, performancePoints, whatWorked } from "@/lib/performance";
 import type { Job } from "./types";
 
 export const MAGNET_FORMATS = ["checklist", "calculator", "comparison", "template", "mini_report"] as const;
 const ARTICLES_PER_WEEK = 5;
 
-// Scoring weights (max points). Past performance switches on in phase 5.
+// Scoring weights (max points). Performance = how similar past pieces did (5 = average / no history).
 export const SCORE_MAX = { demand: 40, fit: 30, freshness: 20, performance: 10 } as const;
 
 const TopicOut = z.object({
@@ -49,6 +50,7 @@ function buildPrompt(p: {
   existing: string[];
   magnetFormat: string;
   factSheet: string;
+  worked: string[];
 }): string {
   return [
     "You are the content strategist for Renesis Tech Japan (renesistech.jp), an AI-native engineering firm",
@@ -84,6 +86,9 @@ function buildPrompt(p: {
     ...(p.queries.length
       ? p.queries.map((q) => `- ${q.query} — ${q.impressions} imp, ${q.clicks} clicks, pos ${q.position.toFixed(1)}`)
       : ["- (none yet — Search Console not connected or no data)"]),
+    "",
+    "WHAT WORKED ON renesistech.jp (last 28 days; do more of this, without duplicating it):",
+    ...(p.worked.length ? p.worked.map((w) => `- ${w}`) : ["- (no performance data yet)"]),
     "",
     "NEWS SIGNALS (already filtered for relevance):",
     ...(p.signals.length
@@ -136,6 +141,7 @@ export function makeWeeklyShortlist(opts: { force?: boolean } = {}): Job {
       const services = await sql<{ id: string; slug: string; name_ja: string }[]>`
         select id, slug, name_ja from services where active order by slug`;
       const serviceId = new Map(services.map((s) => [s.slug, s.id]));
+      const serviceId_ = (slug: string) => serviceId.get(slug) ?? null;
 
       const signals = await sql<SignalRow[]>`
         select s.id, s.title, s.buyer_problem, s.analysis->>'angle' as angle,
@@ -171,6 +177,7 @@ export function makeWeeklyShortlist(opts: { force?: boolean } = {}): Job {
       const magnetFormat = nextMagnetFormat(recentFormats);
 
       const [fact] = await sql<{ content: string }[]>`select content from knowledge_docs where kind = 'fact_sheet'`;
+      const [perf, worked] = await Promise.all([groupPerformance(), whatWorked()]);
 
       const { topics } = await generateJson(
         buildPrompt({
@@ -180,6 +187,7 @@ export function makeWeeklyShortlist(opts: { force?: boolean } = {}): Job {
           existing: existingRows.map((r) => r.t),
           magnetFormat,
           factSheet: fact?.content ?? "",
+          worked,
         }),
         Result,
         { temperature: 0.5 },
@@ -194,7 +202,9 @@ export function makeWeeklyShortlist(opts: { force?: boolean } = {}): Job {
           : Math.round(t.demand_estimate * 2); // estimate only: capped at 20
         const fit = Math.round(t.fit * 3);
         const freshness = freshnessPoints(refs.map((i) => signals[i].published_at), t.evergreen);
-        const performance = 0;
+        const topicServiceId = (t.service_slug && serviceId_(t.service_slug)) || null;
+        const perfScore = performancePoints(perf, topicServiceId, t.kind, t.kind === "lead_magnet" ? (t.magnet_format ?? magnetFormat) : null);
+        const performance = perfScore.points;
         const score = demand + fit + freshness + performance;
 
         const [row] = await sql<{ id: string }[]>`
@@ -204,11 +214,11 @@ export function makeWeeklyShortlist(opts: { force?: boolean } = {}): Job {
           ) values (
             ${t.kind}, ${t.kind === "lead_magnet" ? (t.magnet_format ?? magnetFormat) : null},
             ${t.title_ja}, ${t.title_en || null}, ${t.primary_keyword}, ${t.secondary_keywords},
-            ${t.search_intent}, ${(t.service_slug && serviceId.get(t.service_slug)) || null},
+            ${t.search_intent}, ${topicServiceId},
             ${score},
             ${sql.json({
               demand, demand_source: imp > 0 ? "search_console" : "estimate", gsc_impressions_28d: imp,
-              fit, freshness, performance, evergreen: t.evergreen,
+              fit, freshness, performance, performance_note: perfScore.note, evergreen: t.evergreen,
             })},
             ${t.rationale || null}, ${sql.json(t.outline)}, ${t.cta || null}, ${week}
           ) returning id`;
@@ -220,7 +230,7 @@ export function makeWeeklyShortlist(opts: { force?: boolean } = {}): Job {
 
       return {
         status: "ok",
-        stats: { week, topics: inserted, signalsUsed: signals.length, gscQueries: queries.length, magnetFormat },
+        stats: { week, topics: inserted, signalsUsed: signals.length, gscQueries: queries.length, magnetFormat, livePieces: perf.overall.pieces },
       };
     },
   };

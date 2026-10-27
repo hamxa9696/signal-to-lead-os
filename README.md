@@ -22,7 +22,8 @@ pnpm job weekly          # Monday shortlist (add --force to regenerate)
 
 Pages: **Status** (connections, run buttons, job log) · **Topics** (weekly shortlist, approve /
 reject) · **Topic workspace** (prompt pack → paste draft → checks + Gemini review → Payload draft) ·
-**Signals** (collected news with Gemini's scoring) · **Delivery** (Brevo setup, Make test,
+**Signals** (collected news with Gemini's scoring) · **Performance** (traffic, search, leads per
+piece; what the scoring learns) · **Delivery** (Brevo setup, Make test,
 downloads) · **Knowledge** (fact sheet, style guide, banned
 phrases, review checklist).
 
@@ -36,6 +37,7 @@ src/lib/               env · db · gemini · google (GA4/GSC) · payload · hea
 src/lib/content/       prompt pack · draft parsing · checks · Gemini review · Markdown→Lexical · Payload publish
 src/lib/magnet/        PDF rendering (local Chrome) · Supabase Storage upload
 src/lib/brevo.ts       list, attributes, delivery template, delivery events
+src/lib/performance.ts per-piece + per-service performance, scoring feedback
 integrations/website/  download form component for renesistech.jp
 src/jobs/              collect-feeds · collect-gsc · analyze-signals · weekly-shortlist · CLI runner
 src/app/               Next.js App Router — status, topics, signals + /api/health
@@ -47,4 +49,5 @@ src/app/               Next.js App Router — status, topics, signals + /api/hea
 **Phase 4 — lead-magnet delivery** done (PDF → public link → landing draft → form → Make → Brevo → sync).
 Going live needs: Payload API user + 2 categories (§6), Brevo sender (§7), Make scenario (§8, docs/MAKE.md),
 Supabase (§9), and the form component on the website (integrations/website).
-Next: phase 5 (GA4 / Search Console performance per piece, feeding back into topic scoring).
+**Phase 5 — performance feedback** done (GA4 + Search Console per piece → performance points in the weekly score).
+Next: phase 6 (monthly review: refresh / expand / prune recommendations).

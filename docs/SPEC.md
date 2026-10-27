@@ -1,6 +1,6 @@
 # Renesis Signal-to-Lead OS — Spec
 
-Status: **v0.4, phase 4 (lead-magnet delivery)** · Owner: Renesis marketing · Last updated 2026-10-27
+Status: **v0.5, phase 5 (performance feedback)** · Owner: Renesis marketing · Last updated 2026-10-27
 
 ## 1. Goal
 
@@ -141,7 +141,7 @@ Hosting note: Vercel Hobby is non-commercial only; if the UI needs hosting use C
 - Demand 40: Search Console impressions (28 days) for queries that overlap the keyword, log-scaled (1,000 impressions = full marks). With no Search Console data, Gemini's estimate is used, capped at 20.
 - Fit 30: Gemini's 0–10 rating of how directly the topic leads to a Renesis service.
 - Freshness 20: age of the newest linked news item; evergreen topics with no news get 10.
-- Performance 10: zero until phase 5 measures similar past content.
+- Performance 10: how past pieces for the same service (and, for lead magnets, the same format) did versus the average piece; see 4d.
 
 **Content rules in the prompt:** at least 3 evergreen buyer-intent topics a week, at most 2
 news-driven ones, and at most 1 blockchain topic (the existing blog is almost all
@@ -167,6 +167,31 @@ Workspace per topic (`/topics/<id>`), four steps:
 
 Knowledge docs are editable at `/knowledge`.
 
+## 4d. Phase 5 details
+
+**Collection (daily):** `collect-ga4` stores, per day: page × (sessions, users, views, engaged sessions,
+engagement time, key events), the same split by session source/medium, `generate_lead` events per page, and
+site-wide totals (`page_path = '*'`, since adding up per-page sessions double-counts). It backfills
+90 days, then refreshes the last 7 (GA4 is still processing those). Search Console is already
+collected (phase 2).
+
+**Per piece:** GA4 paths and Search Console URLs are normalised (origin, trailing slash and encoding
+removed) and joined to `publications.page_path`. The Performance page lists our pieces, or all blog
+pages, with sessions (and change), engaged %, leads (GA4 form fills + Brevo downloads), clicks, impressions and
+impression-weighted position; positions 8–20 are highlighted as refresh candidates. Each live
+piece's workspace shows its top queries and traffic sources. Periods end at the latest day with
+data, not today, so reporting lag doesn't look like a drop.
+
+**Feedback into scoring:**
+- Pieces count once live for at least 7 days. Each is measured over its first 90 days as sessions/day and
+  leads/day, so old and new pieces compare fairly.
+- value = sessions/day + 30 × leads/day. A topic's performance points = 5 × (similar pieces' value ÷
+  average piece's value), from 0 to 10. "Similar" = same service, and for lead magnets also the same format.
+- At least 2 similar pieces are needed; otherwise the topic gets a neutral 5, with the reason stored in
+  `score_breakdown.performance_note`.
+- The shortlist prompt also gets a "what worked (last 28 days)" list of the best pages, so
+  Gemini proposes more of what earns traffic and leads.
+
 ## 5. Data model (summary — see `supabase/migrations`)
 
 `services`, `icps`, `knowledge_docs`, `sources`, `signals`, `search_queries_daily`, `topics`,
@@ -181,7 +206,7 @@ Knowledge docs are editable at `/knowledge`.
 | 2 ✅ | Signals + weekly shortlist — RSS + GSC collectors, Gemini scoring, approve screen | A ranked topic list every Monday |
 | 3 ✅ | Content workflow — prompt packs, draft intake, Gemini review, Payload draft push, social copy + UTMs | Articles flow from topic to Payload draft |
 | 4 ✅ | Lead-magnet pipeline — landing template, Payload form, Make → Brevo delivery | Downloads deliver by email; contacts stored |
-| 5 | Performance — GA4/GSC/forms daily pull, per-piece dashboard, scoring feedback | See traffic + form fills per piece |
+| 5 ✅ | Performance — GA4/GSC/forms daily pull, per-piece dashboard, scoring feedback | See traffic + form fills per piece |
 | 6 | Monthly review — refresh / expand / prune recommendations | Monthly action list |
 
 ## 7. Open questions

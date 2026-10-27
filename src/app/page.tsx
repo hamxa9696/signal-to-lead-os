@@ -54,6 +54,7 @@ export default async function Home() {
         <div className="mt-4 flex flex-wrap items-start gap-3">
           <RunButton job="collect-feeds" label="Collect news + sitemap" />
           <RunButton job="collect-gsc" label="Pull Search Console" />
+          <RunButton job="collect-ga4" label="Pull GA4" />
           <RunButton job="analyze" label="Analyze signals (Gemini)" />
           <RunButton job="shortlist" label="Regenerate weekly shortlist" force />
         </div>
