@@ -1,0 +1,223 @@
+// Monday job: turn the week's signals + Search Console demand into ~5 article topics and
+// 1 lead-magnet concept, scored deterministically so the ranking is explainable.
+import { z } from "zod";
+import { sql } from "@/lib/db";
+import { env, has } from "@/lib/env";
+import { generateJson } from "@/lib/gemini";
+import { weekOf } from "@/lib/week";
+import type { Job } from "./types";
+
+export const MAGNET_FORMATS = ["checklist", "calculator", "comparison", "template", "mini_report"] as const;
+const ARTICLES_PER_WEEK = 5;
+
+// Scoring weights (max points). Past performance switches on in phase 5.
+export const SCORE_MAX = { demand: 40, fit: 30, freshness: 20, performance: 10 } as const;
+
+const TopicOut = z.object({
+  kind: z.enum(["article", "lead_magnet"]),
+  magnet_format: z.enum(MAGNET_FORMATS).nullable().catch(null),
+  title_ja: z.string().min(4),
+  title_en: z.string().catch(""),
+  primary_keyword: z.string().min(1),
+  secondary_keywords: z.array(z.string()).catch([]),
+  search_intent: z.enum(["informational", "commercial", "transactional", "navigational"]).catch("informational"),
+  service_slug: z.string().nullable().catch(null),
+  fit: z.number().min(0).max(10).catch(5),
+  demand_estimate: z.number().min(0).max(10).catch(3),
+  evergreen: z.boolean().catch(true),
+  signal_refs: z.array(z.number().int()).catch([]),
+  rationale: z.string().catch(""),
+  outline: z.array(z.string()).catch([]),
+  cta: z.string().catch(""),
+});
+const Result = z.object({ topics: z.array(TopicOut).min(1) });
+
+type SignalRow = { id: string; title: string; buyer_problem: string | null; angle: string | null; service: string | null; published_at: Date | null };
+type QueryRow = { query: string; impressions: number; clicks: number; position: number };
+
+function nextMagnetFormat(recent: string[]): (typeof MAGNET_FORMATS)[number] {
+  return MAGNET_FORMATS.find((f) => !recent.includes(f)) ?? MAGNET_FORMATS[0];
+}
+
+function buildPrompt(p: {
+  services: { slug: string; name_ja: string }[];
+  signals: SignalRow[];
+  queries: QueryRow[];
+  existing: string[];
+  magnetFormat: string;
+  factSheet: string;
+}): string {
+  return [
+    "You are the content strategist for Renesis Tech Japan (renesistech.jp), an AI-native engineering firm",
+    "selling to Japanese companies. Goal: maximum ORGANIC SEARCH TRAFFIC to renesistech.jp from Japanese",
+    "business readers, plus email sign-ups and inquiries. Plan this week's content.",
+    "",
+    `Produce exactly ${ARTICLES_PER_WEEK} topics with kind "article" and 1 with kind "lead_magnet".`,
+    "Rules:",
+    "- At least 3 articles must be EVERGREEN search topics: long-tail, buyer-intent Japanese queries people",
+    "  actually type (patterns like 〜とは / 費用 / 相場 / 比較 / 進め方 / 事例 / 失敗 / 選び方 / 外注).",
+    "- At most 2 articles may be news-driven; they must give a practical angle, not rewrite the news.",
+    "- Prioritise AI and software services. At most 1 of the 6 topics may be blockchain/Web3 — the blog",
+    "  already covers that heavily.",
+    "- Do NOT duplicate EXISTING CONTENT.",
+    `- The lead magnet must use format "${p.magnetFormat}" and be something a Japanese manager would trade`,
+    "  an email address for (practical, specific, reusable). Its outline lists the sections/items it contains.",
+    "- primary_keyword: one Japanese search query (2–5 words). secondary_keywords: 3–6 related queries.",
+    "- When SEARCH CONSOLE QUERIES are given, prefer topics that can win those queries.",
+    "- fit 0–10: how directly the topic leads a reader toward a Renesis service.",
+    "- demand_estimate 0–10: your estimate of Japanese search demand for primary_keyword.",
+    "- signal_refs: indexes of NEWS SIGNALS this topic draws on ([] if none).",
+    "- title_ja: natural Japanese title, ≤ 40 characters, no clickbait. title_en: English gloss.",
+    "- outline: 5–8 Japanese H2 headings. cta: one Japanese call to action pointing at the matching service",
+    "  or the free AI診断 (renesistech.jp/ai-shindan).",
+    "- rationale: 1–2 English sentences on why this topic, this week.",
+    "",
+    "SERVICES (service_slug must be one of these):",
+    ...p.services.map((s) => `- ${s.slug}: ${s.name_ja}`),
+    "",
+    p.factSheet ? `RENESIS FACT SHEET:\n${p.factSheet.slice(0, 3000)}\n` : "",
+    "SEARCH CONSOLE QUERIES (last 28 days; impressions, clicks, avg position):",
+    ...(p.queries.length
+      ? p.queries.map((q) => `- ${q.query} — ${q.impressions} imp, ${q.clicks} clicks, pos ${q.position.toFixed(1)}`)
+      : ["- (none yet — Search Console not connected or no data)"]),
+    "",
+    "NEWS SIGNALS (already filtered for relevance):",
+    ...(p.signals.length
+      ? p.signals.map((s, i) => `[${i}] ${s.title}${s.buyer_problem ? ` | 課題: ${s.buyer_problem}` : ""}${s.angle ? ` | 切り口: ${s.angle}` : ""}`)
+      : ["- (none)"]),
+    "",
+    "EXISTING CONTENT (do not duplicate):",
+    ...(p.existing.length ? p.existing.map((e) => `- ${e}`) : ["- (none)"]),
+    "",
+    'Return ONLY JSON: {"topics":[{"kind","magnet_format","title_ja","title_en","primary_keyword","secondary_keywords",',
+    '"search_intent","service_slug","fit","demand_estimate","evergreen","signal_refs","rationale","outline","cta"}]}',
+  ]
+    .filter((l) => l !== "")
+    .join("\n");
+}
+
+/** Search Console impressions (28d) for queries overlapping the keyword. */
+async function gscImpressions(keyword: string): Promise<number> {
+  const kw = keyword.trim();
+  if (kw.length < 2) return 0;
+  const [{ imp }] = await sql<{ imp: number }[]>`
+    select coalesce(sum(impressions), 0)::int as imp from search_queries_daily
+    where date >= current_date - 28
+      and (query ilike ${"%" + kw + "%"} or (length(query) >= 3 and ${kw} ilike '%' || query || '%'))`;
+  return imp;
+}
+
+function freshnessPoints(dates: (Date | null)[], evergreen: boolean): number {
+  const ages = dates.filter((d): d is Date => d !== null).map((d) => (Date.now() - d.getTime()) / 86_400_000);
+  if (!ages.length) return evergreen ? 10 : 5;
+  const newest = Math.min(...ages);
+  return newest <= 3 ? 20 : newest <= 7 ? 15 : newest <= 14 ? 10 : 5;
+}
+
+export function makeWeeklyShortlist(opts: { force?: boolean } = {}): Job {
+  return {
+    name: "weekly-shortlist",
+    description: "Generate this week's topic shortlist (5 articles + 1 lead magnet) with Gemini",
+    async run() {
+      if (!has(env.geminiApiKey)) {
+        return { status: "skipped", stats: {}, note: "GEMINI_API_KEY not set (SETUP.md §2)" };
+      }
+      const week = weekOf();
+      const [{ n }] = await sql<{ n: number }[]>`select count(*)::int as n from topics where week_of = ${week}`;
+      if (n > 0 && !opts.force) {
+        return { status: "skipped", stats: { week, existing: n }, note: "shortlist already generated for this week (use --force)" };
+      }
+      if (opts.force) await sql`delete from topics where week_of = ${week} and status = 'proposed'`;
+
+      const services = await sql<{ id: string; slug: string; name_ja: string }[]>`
+        select id, slug, name_ja from services where active order by slug`;
+      const serviceId = new Map(services.map((s) => [s.slug, s.id]));
+
+      const signals = await sql<SignalRow[]>`
+        select s.id, s.title, s.buyer_problem, s.analysis->>'angle' as angle,
+               sv.slug as service, s.published_at
+        from signals s left join services sv on sv.id = s.service_id
+        where s.status = 'analyzed' and s.relevance >= 0.5
+          and coalesce(s.published_at, s.fetched_at) >= now() - interval '14 days'
+          and not exists (select 1 from topic_signals ts where ts.signal_id = s.id)
+        order by s.relevance desc, s.published_at desc nulls last
+        limit 40`;
+
+      const queries = await sql<QueryRow[]>`
+        select query, sum(impressions)::int as impressions, sum(clicks)::int as clicks,
+               (sum(position * impressions) / nullif(sum(impressions), 0))::float as position
+        from search_queries_daily
+        where date >= current_date - 28
+        group by query
+        having sum(impressions) > 0
+           and sum(position * impressions) / nullif(sum(impressions), 0) between 3 and 40
+        order by impressions desc
+        limit 40`;
+
+      const existingRows = await sql<{ t: string }[]>`
+        select title as t from site_pages where section = 'blog' and title <> 'blog'
+        union all
+        select title_ja as t from topics where week_of >= ${week}::date - 84 and status <> 'rejected'`;
+
+      const recentFormats = (
+        await sql<{ f: string }[]>`
+          select magnet_format as f from topics
+          where kind = 'lead_magnet' and status <> 'rejected' and week_of >= ${week}::date - 28`
+      ).map((r) => r.f);
+      const magnetFormat = nextMagnetFormat(recentFormats);
+
+      const [fact] = await sql<{ content: string }[]>`select content from knowledge_docs where kind = 'fact_sheet'`;
+
+      const { topics } = await generateJson(
+        buildPrompt({
+          services,
+          signals,
+          queries,
+          existing: existingRows.map((r) => r.t),
+          magnetFormat,
+          factSheet: fact?.content ?? "",
+        }),
+        Result,
+        { temperature: 0.5 },
+      );
+
+      let inserted = 0;
+      for (const t of topics) {
+        const refs = t.signal_refs.filter((i) => i >= 0 && i < signals.length);
+        const imp = await gscImpressions(t.primary_keyword);
+        const demand = imp > 0
+          ? Math.round(SCORE_MAX.demand * Math.min(1, Math.log10(1 + imp) / 3)) // 1,000 imp = full marks
+          : Math.round(t.demand_estimate * 2); // estimate only: capped at 20
+        const fit = Math.round(t.fit * 3);
+        const freshness = freshnessPoints(refs.map((i) => signals[i].published_at), t.evergreen);
+        const performance = 0;
+        const score = demand + fit + freshness + performance;
+
+        const [row] = await sql<{ id: string }[]>`
+          insert into topics (
+            kind, magnet_format, title_ja, title_en, primary_keyword, secondary_keywords, search_intent,
+            service_id, score, score_breakdown, rationale, outline, cta, week_of
+          ) values (
+            ${t.kind}, ${t.kind === "lead_magnet" ? (t.magnet_format ?? magnetFormat) : null},
+            ${t.title_ja}, ${t.title_en || null}, ${t.primary_keyword}, ${t.secondary_keywords},
+            ${t.search_intent}, ${(t.service_slug && serviceId.get(t.service_slug)) || null},
+            ${score},
+            ${sql.json({
+              demand, demand_source: imp > 0 ? "search_console" : "estimate", gsc_impressions_28d: imp,
+              fit, freshness, performance, evergreen: t.evergreen,
+            })},
+            ${t.rationale || null}, ${sql.json(t.outline)}, ${t.cta || null}, ${week}
+          ) returning id`;
+        for (const i of refs) {
+          await sql`insert into topic_signals (topic_id, signal_id) values (${row.id}, ${signals[i].id}) on conflict do nothing`;
+        }
+        inserted++;
+      }
+
+      return {
+        status: "ok",
+        stats: { week, topics: inserted, signalsUsed: signals.length, gscQueries: queries.length, magnetFormat },
+      };
+    },
+  };
+}

@@ -1,6 +1,6 @@
 # Renesis Signal-to-Lead OS — Spec
 
-Status: **v0.1, phase 1 (foundations)** · Owner: Renesis marketing · Last updated 2026-10-27
+Status: **v0.2, phase 2 (signals + weekly shortlist)** · Owner: Renesis marketing · Last updated 2026-10-27
 
 ## 1. Goal
 
@@ -116,6 +116,28 @@ APPI: every form shows purpose of use and a consent checkbox; consent is stored.
 
 Hosting note: Vercel Hobby is non-commercial only; if the UI needs hosting use Cloudflare Pages.
 
+## 4b. Phase 2 details
+
+**Jobs** (`pnpm job <name>`, also buttons on the Status page and scheduled in GitHub Actions):
+| Job | What it does | Needs |
+|---|---|---|
+| `collect-feeds` | 8 Japanese IT/enterprise RSS feeds → `signals` (items ≤ 21 days old); renesistech.jp sitemap → `site_pages` | nothing |
+| `collect-gsc` | Search Console date×page×query → `search_queries_daily` (90-day backfill, then a rolling 10-day refresh) | §3, §5 |
+| `analyze` | Gemini scores new signals in batches of 40: relevance, service, buyer problem, angle. Below 0.35 → ignored | §2 |
+| `shortlist` | Monday: 5 articles + 1 lead magnet from the strongest signals, Search Console queries at positions 3–40, minus existing content | §2 |
+| `daily` / `weekly` | collect-feeds + collect-gsc + analyze / shortlist | |
+
+**Topic score (0–100)** is computed in code, not by the model, so the ranking can be explained:
+- Demand 40: Search Console impressions (28 days) for queries that overlap the keyword, log-scaled (1,000 impressions = full marks). With no Search Console data, Gemini's estimate is used, capped at 20.
+- Fit 30: Gemini's 0–10 rating of how directly the topic leads to a Renesis service.
+- Freshness 20: age of the newest linked news item; evergreen topics with no news get 10.
+- Performance 10: zero until phase 5 measures similar past content.
+
+**Content rules in the prompt:** at least 3 evergreen buyer-intent topics a week, at most 2
+news-driven ones, and at most 1 blockchain topic (the existing blog is almost all
+blockchain, while the main business is AI). Lead-magnet formats rotate
+(checklist → calculator → comparison → template → mini-report) without repeats within 4 weeks.
+
 ## 5. Data model (summary — see `supabase/migrations`)
 
 `services`, `icps`, `knowledge_docs`, `sources`, `signals`, `search_queries_daily`, `topics`,
@@ -126,8 +148,8 @@ Hosting note: Vercel Hobby is non-commercial only; if the UI needs hosting use C
 
 | # | Phase | Usable result |
 |---|---|---|
-| 1 | **Foundations** — repo, schema, connection health page, account setup guide | All accounts connected, health page green |
-| 2 | Signals + weekly shortlist — RSS + GSC collectors, Gemini scoring, approve screen | A ranked topic list every Monday |
+| 1 ✅ | **Foundations** — repo, schema, connection health page, account setup guide | All accounts connected, health page green |
+| 2 ✅ | Signals + weekly shortlist — RSS + GSC collectors, Gemini scoring, approve screen | A ranked topic list every Monday |
 | 3 | Content workflow — prompt packs, draft intake, Gemini review, Payload draft push, social copy + UTMs | Articles flow from topic to Payload draft |
 | 4 | Lead-magnet pipeline — landing template, Payload form, Make → Brevo delivery | Downloads deliver by email; contacts stored |
 | 5 | Performance — GA4/GSC/forms daily pull, per-piece dashboard, scoring feedback | See traffic + form fills per piece |

@@ -13,6 +13,7 @@ reload http://localhost:3003. The matching row turns green.
 | 6 | Payload API user | Website developer | 20 min | Phase 3 |
 | 7 | Brevo | You (DNS access needed) | 20 min | Phase 4 |
 | 8 | Make.com | You | 5 min | Phase 4 |
+| 9 | Supabase + GitHub secrets (scheduled jobs) | You | 15 min | Phase 2 automation |
 
 **Do §4 and §5 first.** Analytics and Search Console only start collecting data once they are
 installed, so every day of delay is a day of missing history.
@@ -113,3 +114,25 @@ The app creates **drafts only**, so it gets a dedicated, limited user.
 1. Sign up at https://www.make.com (free plan). Nothing else yet. In phase 4 we create one
    scenario (form webhook → Brevo contact + download email + alert) and put its webhook URL in
    `MAKE_WEBHOOK_URL`.
+
+## §9 Supabase + GitHub secrets (turns on the daily schedule)
+Until this is done, jobs only run when you press the buttons on the Status page (or
+`pnpm job daily`) on your Mac. The schedule in `.github/workflows/jobs.yml` runs every
+morning at 06:00 JST and builds the shortlist on Mondays at 06:30 JST. It exits early
+until this step is done.
+
+1. https://supabase.com → **New project** (free plan), region **Tokyo (ap-northeast-1)**,
+   with a strong database password.
+2. **Connect** → **Session pooler** → copy the connection string. Use the pooler, not the
+   "Direct connection": GitHub's runners are IPv4-only and Supabase's direct host is IPv6.
+3. Apply the schema from your Mac:
+   ```bash
+   DATABASE_URL='<pooler string>' node scripts/migrate.mjs
+   ```
+4. GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**, add:
+   `DATABASE_URL`, `GEMINI_API_KEY`, `GOOGLE_SERVICE_ACCOUNT_JSON`, `GSC_SITE_URL`, `GA4_PROPERTY_ID`.
+5. **Actions → pipeline-jobs → Run workflow → daily** to test it.
+6. To make the app on your Mac show the same data, set `.env` `DATABASE_URL` to the same
+   pooler string.
+
+Supabase pauses free projects after 7 days without activity. The daily job keeps it awake.
