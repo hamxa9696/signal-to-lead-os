@@ -22,6 +22,17 @@ Use a company Google account (not personal) for §2–§5 so access survives sta
 
 ---
 
+## Status (2026-10-28)
+- §3 Service account: **done**, `stl-reader@signal-to-lead-os.iam.gserviceaccount.com` in Google Cloud project
+  `signal-to-lead-os` (Analytics Data API + Search Console API enabled; key stored in Vercel, GitHub and local `.env*`).
+- §4 GA4: **connected**, property `468932036` ("Japan | Renesis Tech"), stl-reader = Viewer. 90 days backfilled.
+- §5 Search Console: **pending verification.** Property `https://renesistech.jp/` was added under
+  muhammadhamza9696@gmail.com, but the Analytics method failed (the GA tag loads via JavaScript). The website
+  developer adds this to the `<head>` of renesistech.jp:
+  `<meta name="google-site-verification" content="xjHbWZ4sIH6zu-PbLqyPFWFH7Nf9HBOaSF0-HlXlia8" />`
+  Then: Verify in Search Console → Settings → Users → add stl-reader (Restricted) → set `GSC_SITE_URL=https://renesistech.jp/`
+  in `.env.production.local` and run `scripts/push-google-env.sh`.
+
 ## §1 Database
 Local Postgres runs in Docker (`pnpm db:up && pnpm db:migrate`). When scheduled jobs start
 (phase 2) we'll create a free Supabase project and point `DATABASE_URL` at it.
