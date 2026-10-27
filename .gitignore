@@ -16,3 +16,6 @@ next-env.d.ts
 
 # generated lead-magnet PDFs
 /exports
+.vercel/
+.vercel
+.env*
