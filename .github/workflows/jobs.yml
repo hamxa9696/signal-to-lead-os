@@ -1,0 +1,78 @@
+# Scheduled pipeline jobs. Runs against the Supabase database in the DATABASE_URL secret.
+# Until that secret exists, every run exits early and green (nothing to do).
+name: pipeline-jobs
+
+on:
+  schedule:
+    - cron: "0 21 * * *"   # daily 06:00 JST — collect + analyze
+    - cron: "30 21 * * 0"  # Monday 06:30 JST — weekly shortlist
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "Job to run"
+        required: true
+        default: daily
+        type: choice
+        options: [daily, weekly, collect-feeds, collect-gsc, analyze, shortlist]
+      force:
+        description: "Regenerate this week's shortlist even if it exists"
+        type: boolean
+        default: false
+
+concurrency:
+  group: pipeline-jobs
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+      GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
+      GSC_SITE_URL: ${{ secrets.GSC_SITE_URL }}
+    steps:
+      - name: Check configuration
+        id: cfg
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL secret not set — skipping (see docs/SETUP.md §9)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.cfg.outputs.ready == 'true'
+      - uses: pnpm/action-setup@v4
+        if: steps.cfg.outputs.ready == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.cfg.outputs.ready == 'true'
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install
+        if: steps.cfg.outputs.ready == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: Migrate
+        if: steps.cfg.outputs.ready == 'true'
+        run: node scripts/migrate.mjs
+
+      - name: Pick job
+        if: steps.cfg.outputs.ready == 'true'
+        id: pick
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "job=${{ inputs.job }}" >> "$GITHUB_OUTPUT"
+            [ "${{ inputs.force }}" = "true" ] && echo "flags=--force" >> "$GITHUB_OUTPUT" || true
+          elif [ "${{ github.event.schedule }}" = "30 21 * * 0" ]; then
+            echo "job=weekly" >> "$GITHUB_OUTPUT"
+          else
+            echo "job=daily" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run ${{ steps.pick.outputs.job }}
+        if: steps.cfg.outputs.ready == 'true'
+        run: pnpm job ${{ steps.pick.outputs.job }} ${{ steps.pick.outputs.flags }}
