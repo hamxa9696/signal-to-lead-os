@@ -65,6 +65,7 @@ function buildPrompt(p: {
     "- Do NOT duplicate EXISTING CONTENT.",
     `- The lead magnet must use format "${p.magnetFormat}" and be something a Japanese manager would trade`,
     "  an email address for (practical, specific, reusable). Its outline lists the sections/items it contains.",
+    "  Do not put an item count in a lead-magnet title (checklists have 25–40 items, decided when written).",
     "- primary_keyword: one Japanese search query (2–5 words). secondary_keywords: 3–6 related queries.",
     "- When SEARCH CONSOLE QUERIES are given, prefer topics that can win those queries.",
     "- fit 0–10: how directly the topic leads a reader toward a Renesis service.",

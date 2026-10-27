@@ -45,6 +45,7 @@ function prompt(d: ParsedDraft, t: TopicFull, k: Knowledge): string {
     "  clearly unnatural Japanese that would embarrass the brand.",
     "- medium: awkward phrasing, filler, weak structure, missing intent coverage.",
     "- low: polish.",
+    "Always flag as high: a title that promises a number (e.g. 10項目, 5つ, 7選) the content does not deliver.",
     "For every issue give `quote` (exact text from the draft, ≤ 80 chars), `problem` (English), `fix` (concrete Japanese rewrite or instruction).",
     "overall: 0–100 publishability. summary: 2 English sentences.",
     "",

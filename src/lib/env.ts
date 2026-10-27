@@ -15,9 +15,18 @@ export const env = {
   payloadAuthCollection: process.env.PAYLOAD_AUTH_COLLECTION ?? "users",
   payloadPostsCollection: process.env.PAYLOAD_POSTS_COLLECTION ?? "posts",
   payloadCategoryId: process.env.PAYLOAD_CATEGORY_ID ?? "", // category for new AI posts
+  payloadResourcesCategoryId: process.env.PAYLOAD_RESOURCES_CATEGORY_ID ?? "", // 資料ダウンロード (landing pages)
   payloadPlaceholderImageId: process.env.PAYLOAD_PLACEHOLDER_IMAGE_ID ?? "", // featured image until an editor picks one
 
   brevoApiKey: process.env.BREVO_API_KEY ?? "",
+  brevoSenderEmail: process.env.BREVO_SENDER_EMAIL ?? "", // verified sender, e.g. info@renesistech.jp
+  brevoSenderName: process.env.BREVO_SENDER_NAME ?? "Renesis Tech",
+
+  // Lead-magnet PDF hosting (public Supabase Storage bucket)
+  supabaseUrl: process.env.SUPABASE_URL ?? "",
+  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
+  leadMagnetBaseUrl: process.env.LEAD_MAGNET_BASE_URL ?? "", // optional override for download links
+  chromePath: process.env.CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   makeWebhookUrl: process.env.MAKE_WEBHOOK_URL ?? "",
 };
 

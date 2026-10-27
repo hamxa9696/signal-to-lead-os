@@ -12,12 +12,31 @@ const SITE = "https://renesistech.jp";
 type PayloadPost = { id: string; slug: string; status: string; publishedAt?: string | null };
 
 export function payloadReady(): { ok: boolean; reason?: string } {
-  if (!has(env.payloadUrl) || !has(env.payloadApiKey)) return { ok: false, reason: "PAYLOAD_URL / PAYLOAD_API_KEY not set (SETUP.md §6)" };
+  if (!has(env.payloadApiKey)) return { ok: false, reason: "PAYLOAD_API_KEY not set: ask the website developer for an API user (SETUP.md §6)" };
   return { ok: true };
 }
 
 export function adminUrl(postId: string): string {
   return `${env.payloadUrl}/admin/collections/${env.payloadPostsCollection}/${postId}`;
+}
+
+/**
+ * Landing page for a lead magnet, as a blog post in the 資料ダウンロード category. The website
+ * renders the download form under posts in that category (see integrations/website).
+ */
+export function landingMarkdown(fm: Frontmatter, magnetBody: string): string {
+  const sections = [...magnetBody.matchAll(/^##\s+(.+)$/gm)].map((m) => m[1].trim()).filter((h) => !/使い方/.test(h));
+  return [
+    fm.landing_lead ?? fm.excerpt ?? "",
+    "",
+    "## この資料でわかること",
+    ...(fm.landing_bullets ?? []).map((b) => `- ${b}`),
+    "",
+    ...(fm.landing_for?.length ? ["## こんな方におすすめ", ...fm.landing_for.map((b) => `- ${b}`), ""] : []),
+    ...(sections.length ? ["## 資料の構成", ...sections.map((h) => `- ${h}`), ""] : []),
+    "## ダウンロード方法",
+    "下のフォームに必要事項をご入力ください。ご入力いただいたメールアドレスに、資料のダウンロードリンクをお送りします（無料）。",
+  ].join("\n");
 }
 
 export async function pushDraftToPayload(contentItemId: string): Promise<{ postId: string; created: boolean }> {
@@ -31,20 +50,25 @@ export async function pushDraftToPayload(contentItemId: string): Promise<{ postI
     left join publications p on p.content_item_id = ci.id and p.channel = 'website'
     where ci.id = ${contentItemId}`;
   if (!item) throw new Error("content item not found");
-  if (item.type !== "article") throw new Error("only articles go to the blog (lead magnets get a landing page in phase 4)");
+  const isMagnet = item.type === "lead_magnet";
+  if (isMagnet && !has(env.payloadResourcesCategoryId)) {
+    throw new Error("PAYLOAD_RESOURCES_CATEGORY_ID not set: landing pages need the 資料ダウンロード category so the site shows the download form (SETUP.md §6)");
+  }
 
   const fm = item.frontmatter;
   const coll = env.payloadPostsCollection;
+  const markdown = isMagnet ? landingMarkdown(fm, item.body_md) : item.body_md;
   const data: Record<string, unknown> = {
     title: fm.title,
     slug: fm.slug,
     excerpt: fm.excerpt ?? "",
-    content: markdownToLexical(item.body_md, fm.title),
+    content: markdownToLexical(markdown, fm.title),
     status: "draft",
     featured: false,
     seo: { metaTitle: fm.meta_title ?? fm.title, metaDescription: fm.meta_description ?? "", noIndex: false },
   };
-  if (has(env.payloadCategoryId)) data.category = env.payloadCategoryId;
+  const category = isMagnet ? env.payloadResourcesCategoryId : env.payloadCategoryId;
+  if (has(category)) data.category = category;
   if (has(env.payloadPlaceholderImageId)) {
     data.featuredImage = env.payloadPlaceholderImageId;
     (data.seo as Record<string, unknown>).ogImage = env.payloadPlaceholderImageId;

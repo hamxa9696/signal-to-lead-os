@@ -55,3 +55,27 @@ export async function pushToPayloadAction(_prev: ActionState, form: FormData): P
     return fail(err);
   }
 }
+
+export async function buildPdfAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const id = String(form.get("topicId"));
+  try {
+    const { buildMagnetPdf } = await import("@/lib/magnet/workflow");
+    const r = await buildMagnetPdf(id);
+    revalidatePath(path(id));
+    return { ok: true, message: `PDF built: ${r.pages} pages, ${(r.bytes / 1024).toFixed(0)} KB` };
+  } catch (err) {
+    return fail(err);
+  }
+}
+
+export async function uploadPdfAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const id = String(form.get("topicId"));
+  try {
+    const { uploadMagnetPdf } = await import("@/lib/magnet/workflow");
+    const url = await uploadMagnetPdf(id);
+    revalidatePath(path(id));
+    return { ok: true, message: `Uploaded: ${url}` };
+  } catch (err) {
+    return fail(err);
+  }
+}

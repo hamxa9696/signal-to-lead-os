@@ -9,7 +9,9 @@ import { adminUrl, payloadReady } from "@/lib/content/publish";
 import { CopyButton } from "../../copy-button";
 import { setTopicStatus } from "../../actions";
 import { markReadyAction, rebuildPackAction } from "./actions";
-import { DraftForm, PushToPayload, RerunReview } from "./forms";
+import { BuildPdf, DraftForm, PushToPayload, RerunReview, UploadPdf } from "./forms";
+import { downloadBaseUrl, storageReady } from "@/lib/magnet/storage";
+import { env, has } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +21,7 @@ type Version = {
   human_checked: boolean; body_md: string; review: ReviewResult | null;
 };
 type Pub = { external_id: string | null; url: string | null; status: string; published_at: Date | null };
+type MagnetFile = { slug: string; bytes: number; pages: number | null; public_url: string | null; version_id: string; created_at: Date };
 
 const ITEM_STATUS: Record<string, string> = {
   in_review: "Reviewing",
@@ -65,6 +68,9 @@ export default async function TopicWorkspace({ params }: { params: Promise<{ id:
   const current = versions.find((v) => v.id === item?.current_version_id) ?? versions[0];
   const [pub] = item
     ? await sql<Pub[]>`select external_id, url, status, published_at from publications where content_item_id = ${item.id} and channel = 'website'`
+    : [];
+  const [file] = item
+    ? await sql<MagnetFile[]>`select slug, bytes, pages, public_url, version_id, created_at from magnet_files where content_item_id = ${item.id}`
     : [];
   const review = current?.review ?? null;
   const payload = payloadReady();
@@ -154,11 +160,18 @@ export default async function TopicWorkspace({ params }: { params: Promise<{ id:
           )}
 
           {item && (
-            <Section n={4} title={isArticle ? "Send to Payload as a draft" : "Lead magnet delivery"} done={pub?.status === "live"}>
+            <Section n={4} title={isArticle ? "Send to Payload as a draft" : "PDF, download link and landing page"} done={pub?.status === "live"}>
               {!isArticle ? (
-                <p className="text-sm text-white/60">
-                  Lead magnets don't go to the blog. Phase 4 turns the approved content into a downloadable file, a landing page and an email-delivery form.
-                </p>
+                <MagnetSteps
+                  topicId={id}
+                  itemId={item.id}
+                  ready={item.status === "ready" || item.status === "published"}
+                  file={file ?? null}
+                  currentVersionId={current?.id ?? null}
+                  pub={pub ?? null}
+                  payloadOk={payload.ok}
+                  payloadReason={payload.reason}
+                />
               ) : (
                 <>
                   <p className="text-sm text-white/60">
@@ -250,6 +263,64 @@ function ReviewView({ review, humanChecked }: { review: ReviewResult | null; hum
           </ol>
         </div>
       )}
+    </div>
+  );
+}
+
+function MagnetSteps({ topicId, itemId, ready, file, currentVersionId, pub, payloadOk, payloadReason }: {
+  topicId: string; itemId: string; ready: boolean; file: MagnetFile | null; currentVersionId: string | null;
+  pub: Pub | null; payloadOk: boolean; payloadReason?: string;
+}) {
+  const stale = Boolean(file && currentVersionId && file.version_id !== currentVersionId);
+  const storage = storageReady();
+  const base = downloadBaseUrl();
+  const landingCategory = has(env.payloadResourcesCategoryId);
+  return (
+    <div className="space-y-4 text-sm">
+      {!ready && <p className="text-white/50">Available once the review passes (or you accept it).</p>}
+
+      <div className="space-y-2">
+        <h3 className="font-medium text-white/80">a. PDF</h3>
+        <BuildPdf topicId={topicId} disabled={!ready} rebuild={Boolean(file)} />
+        {file && (
+          <p className="text-white/60">
+            <a href={`/api/magnets/${file.slug}`} target="_blank" rel="noreferrer" className="underline decoration-white/30">Open {file.slug}.pdf</a>{" "}
+            · {file.pages ?? "?"} pages · {(file.bytes / 1024).toFixed(0)} KB
+            {stale && <span className="text-amber-300"> · from an older version, rebuild</span>}
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="font-medium text-white/80">b. Public download link</h3>
+        {!storage.ok && <p className="text-amber-300">{storage.reason}</p>}
+        <UploadPdf topicId={topicId} disabled={!file || stale || !storage.ok} again={Boolean(file?.public_url)} />
+        {file?.public_url ? (
+          <p className="break-all text-white/60">Link: <a href={file.public_url} target="_blank" rel="noreferrer" className="underline decoration-white/30">{file.public_url}</a></p>
+        ) : (
+          base && file && <p className="break-all text-white/40">Will be: {base}/{file.slug}.pdf</p>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="font-medium text-white/80">c. Landing page (Payload draft, 資料ダウンロード category)</h3>
+        <p className="text-white/50">Intro, “この資料でわかること”, “こんな方におすすめ”, and the section list. The website shows the download form under it.</p>
+        {!payloadOk && <p className="text-amber-300">{payloadReason}</p>}
+        {payloadOk && !landingCategory && <p className="text-amber-300">PAYLOAD_RESOURCES_CATEGORY_ID not set (SETUP.md §6)</p>}
+        <PushToPayload
+          topicId={topicId}
+          itemId={itemId}
+          disabled={!payloadOk || !landingCategory || !ready || !file?.public_url}
+          label={pub?.external_id ? "Update landing draft" : "Create landing draft"}
+        />
+        {!file?.public_url && <p className="text-white/40">Upload the PDF first, so the form's link works when the page goes live.</p>}
+        {pub?.external_id && (
+          <p className="text-white/60">
+            Status: <b>{pub.status}</b> · <a href={adminUrl(pub.external_id)} target="_blank" rel="noreferrer" className="underline decoration-white/30">Open in Payload admin</a>
+            {pub.status === "live" && pub.url && <> · <a href={pub.url} target="_blank" rel="noreferrer" className="underline decoration-white/30">View live</a></>}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

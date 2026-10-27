@@ -21,6 +21,7 @@
     "marked": "^18.1.2",
     "next": "^16.2.10",
     "postgres": "^3.4.5",
+    "puppeteer-core": "^25.16.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "server-only": "^0.0.1",

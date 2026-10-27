@@ -1,6 +1,6 @@
 "use client";
 import { useActionState } from "react";
-import { pushToPayloadAction, rerunReviewAction, saveDraftAction, type ActionState } from "./actions";
+import { buildPdfAction, pushToPayloadAction, rerunReviewAction, saveDraftAction, uploadPdfAction, type ActionState } from "./actions";
 
 function Status({ state }: { state: ActionState }) {
   if (!state) return null;
@@ -66,4 +66,28 @@ export function PushToPayload({ topicId, itemId, disabled, label }: { topicId: s
       <Status state={state} />
     </form>
   );
+}
+
+function SimpleAction({ topicId, label, pendingLabel, act, disabled, primary }: {
+  topicId: string; label: string; pendingLabel: string; disabled?: boolean; primary?: boolean;
+  act: (prev: ActionState, form: FormData) => Promise<ActionState>;
+}) {
+  const [state, action, pending] = useActionState(act, null);
+  return (
+    <form action={action} className="flex flex-wrap items-center gap-3">
+      <input type="hidden" name="topicId" value={topicId} />
+      <button disabled={pending || disabled} className={`${btn} ${primary ? "bg-sky-400/90 text-black hover:bg-sky-300" : "border border-white/15 hover:bg-white/10"}`}>
+        {pending ? pendingLabel : label}
+      </button>
+      <Status state={state} />
+    </form>
+  );
+}
+
+export function BuildPdf({ topicId, disabled, rebuild }: { topicId: string; disabled?: boolean; rebuild?: boolean }) {
+  return <SimpleAction topicId={topicId} act={buildPdfAction} disabled={disabled} primary={!rebuild} label={rebuild ? "Rebuild PDF" : "Build PDF"} pendingLabel="Rendering… (~10 s)" />;
+}
+
+export function UploadPdf({ topicId, disabled, again }: { topicId: string; disabled?: boolean; again?: boolean }) {
+  return <SimpleAction topicId={topicId} act={uploadPdfAction} disabled={disabled} primary={!again} label={again ? "Re-upload PDF" : "Upload PDF (public link)"} pendingLabel="Uploading…" />;
 }

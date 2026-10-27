@@ -74,6 +74,21 @@ export async function runHealthChecks(): Promise<Check[]> {
       return `connected — ${a.companyName ?? "account ok"}`;
     }),
 
+    run(
+      "PDF storage (Supabase)",
+      "SETUP.md §9",
+      !has(env.supabaseUrl) ? "SUPABASE_URL" : !has(env.supabaseServiceRoleKey) ? "SUPABASE_SERVICE_ROLE_KEY" : null,
+      async () => {
+        const res = await fetch(`${env.supabaseUrl.replace(/\/$/, "")}/storage/v1/bucket`, {
+          headers: { Authorization: `Bearer ${env.supabaseServiceRoleKey}`, apikey: env.supabaseServiceRoleKey },
+          signal: AbortSignal.timeout(10_000),
+        });
+        if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+        const buckets = (await res.json()) as { id: string }[];
+        return buckets.some((b) => b.id === "lead-magnets") ? "connected, lead-magnets bucket exists" : "connected (bucket is created on first upload)";
+      },
+    ),
+
     run("Make.com webhook", "SETUP.md §8", has(env.makeWebhookUrl) ? null : "MAKE_WEBHOOK_URL", async () =>
       "URL present (not test-called, saves operations)"),
   ]);

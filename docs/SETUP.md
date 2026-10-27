@@ -99,19 +99,29 @@ Developer steps:
 4. Create a category for AI content (e.g. `AI・DX`) → put its id in `PAYLOAD_CATEGORY_ID`.
 5. Pick a generic Renesis image in Media to use until an editor sets a real one → its id in
    `PAYLOAD_PLACEHOLDER_IMAGE_ID`. Needed if `featuredImage` is a required field.
-6. Still unknown: whether `@payloadcms/plugin-form-builder` is installed (phase 4).
+6. Create a second category **資料ダウンロード** (e.g. slug `resources`) for lead-magnet landing
+   pages → its id in `PAYLOAD_RESOURCES_CATEGORY_ID`.
+7. Add the download form to posts in that category: see `integrations/website/README.md`
+   (one component, one `if` in the post template). There is no form plugin on the site, so the
+   component posts straight to Make.com.
 
 ## §7 Brevo (sends lead-magnet emails)
 1. Sign up at https://www.brevo.com (free plan, ~300 emails/day).
 2. **Senders, Domains & Dedicated IPs → Domains → Add domain** → add the DNS records it shows
    (DKIM, DMARC). Without this, emails land in spam, especially with Japanese corporate
    mail filters.
-3. **SMTP & API → API keys → Generate** → `.env`: `BREVO_API_KEY=...`
+3. **Senders** → add and verify the sender address (e.g. `info@renesistech.jp`) →
+   `.env`: `BREVO_SENDER_EMAIL=...`
+4. **SMTP & API → API keys → Generate** → `.env`: `BREVO_API_KEY=...`
+5. In the app: **Delivery → Set up Brevo**. This creates the contact fields, the
+   「資料ダウンロード (Signal-to-Lead)」 list and the Japanese delivery email template, and shows their ids.
 
 ## §8 Make.com
-1. Sign up at https://www.make.com (free plan). Nothing else yet. In phase 4 we create one
-   scenario (form webhook → Brevo contact + download email + alert) and put its webhook URL in
-   `MAKE_WEBHOOK_URL`.
+1. Sign up at https://www.make.com (free plan).
+2. Build the scenario in `docs/MAKE.md` (webhook → filter → Brevo contact → Brevo delivery email).
+3. Put the webhook URL in `.env` `MAKE_WEBHOOK_URL`, and give it to the website developer as
+   `NEXT_PUBLIC_LEAD_FORM_WEBHOOK`.
+4. **Delivery → Send test to Make** so Make learns the fields.
 
 ## §9 Supabase + GitHub secrets (turns on the daily schedule)
 Until this is done, jobs only run when you press the buttons on the Status page (or
@@ -134,3 +144,12 @@ until this step is done.
    pooler string.
 
 Supabase pauses free projects after 7 days without activity. The daily job keeps it awake.
+
+**PDF hosting (lead magnets):** the same project hosts the PDFs in a public Storage bucket
+(`lead-magnets`, created automatically on first upload).
+- **Project Settings → API** → copy the **Project URL** → `.env` `SUPABASE_URL`, and the
+  **service_role** key → `SUPABASE_SERVICE_ROLE_KEY`. Keep it secret: it bypasses all permissions.
+  Only this app on your Mac uses it.
+- Download links look like `<SUPABASE_URL>/storage/v1/object/public/lead-magnets/<slug>.pdf`.
+  Give that base (shown on the Delivery page) to the website developer as
+  `NEXT_PUBLIC_LEAD_MAGNET_BASE_URL`.

@@ -22,7 +22,8 @@ pnpm job weekly          # Monday shortlist (add --force to regenerate)
 
 Pages: **Status** (connections, run buttons, job log) · **Topics** (weekly shortlist, approve /
 reject) · **Topic workspace** (prompt pack → paste draft → checks + Gemini review → Payload draft) ·
-**Signals** (collected news with Gemini's scoring) · **Knowledge** (fact sheet, style guide, banned
+**Signals** (collected news with Gemini's scoring) · **Delivery** (Brevo setup, Make test,
+downloads) · **Knowledge** (fact sheet, style guide, banned
 phrases, review checklist).
 
 ## Layout
@@ -33,6 +34,9 @@ supabase/migrations/   raw SQL schema (portable to Supabase)
 scripts/migrate.mjs    migration runner
 src/lib/               env · db · gemini · google (GA4/GSC) · payload · health checks
 src/lib/content/       prompt pack · draft parsing · checks · Gemini review · Markdown→Lexical · Payload publish
+src/lib/magnet/        PDF rendering (local Chrome) · Supabase Storage upload
+src/lib/brevo.ts       list, attributes, delivery template, delivery events
+integrations/website/  download form component for renesistech.jp
 src/jobs/              collect-feeds · collect-gsc · analyze-signals · weekly-shortlist · CLI runner
 src/app/               Next.js App Router — status, topics, signals + /api/health
 .github/workflows/     daily + Monday schedule
@@ -40,5 +44,7 @@ src/app/               Next.js App Router — status, topics, signals + /api/hea
 
 ## Status
 
-**Phase 3 — content workflow** done. Payload pushes need the API user from docs/SETUP.md §6.
-Next: phase 4 (lead-magnet files, landing pages, form → Brevo email delivery).
+**Phase 4 — lead-magnet delivery** done (PDF → public link → landing draft → form → Make → Brevo → sync).
+Going live needs: Payload API user + 2 categories (§6), Brevo sender (§7), Make scenario (§8, docs/MAKE.md),
+Supabase (§9), and the form component on the website (integrations/website).
+Next: phase 5 (GA4 / Search Console performance per piece, feeding back into topic scoring).

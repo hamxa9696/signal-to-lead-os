@@ -1,6 +1,6 @@
 # Renesis Signal-to-Lead OS — Spec
 
-Status: **v0.3, phase 3 (content workflow)** · Owner: Renesis marketing · Last updated 2026-10-27
+Status: **v0.4, phase 4 (lead-magnet delivery)** · Owner: Renesis marketing · Last updated 2026-10-27
 
 ## 1. Goal
 
@@ -86,10 +86,20 @@ No native reviewer is assigned. Mitigations, in order of impact:
   `utm_content` = variant (optional).
 
 ### 3.6 Lead magnets → emails
-Landing page (Payload) → form (Payload form-builder) → submission stored in Payload →
-Make.com scenario (webhook) → Brevo: add contact to list + send download email.
-Daily job also pulls Payload submissions into `form_submissions` (no Make ops spent).
-APPI: every form shows purpose of use and a consent checkbox; consent is stored.
+renesistech.jp has no form plugin, and its only content collection is `posts`, so:
+- **PDF:** the approved magnet Markdown is rendered to a branded A4 PDF by local Chrome
+  (cover, content, CTA page; checklists get checkboxes) and uploaded to a public Supabase
+  Storage bucket. URL = `<base>/<slug>.pdf`, so it can be derived from the slug.
+- **Landing page:** a Payload post (draft) in the 資料ダウンロード category, built from the
+  magnet's `landing_lead` / `landing_bullets` / `landing_for` frontmatter plus its section list.
+- **Form:** `integrations/website/LeadMagnetForm.tsx`, rendered by the site under posts in
+  that category. It POSTs JSON to a Make.com webhook (honeypot, consent, first-touch UTMs, GA4 `generate_lead`).
+- **Make (3 ops/download):** filter → Brevo upsert contact (list + attributes) → Brevo
+  transactional template (params: name, title, download_url; tag: slug). See `docs/MAKE.md`.
+- **Back into the app:** the daily `sync-brevo` job reads the template's "request" events
+  (one per download) plus contact attributes into `form_submissions`.
+- APPI: the form shows purpose and a consent checkbox, `CONSENT_AT` is stored in Brevo, and the
+  privacy policy must name Make and Brevo as processors.
 
 ### 3.7 Performance tracking (automated where APIs exist)
 | Source | Method |
@@ -170,7 +180,7 @@ Knowledge docs are editable at `/knowledge`.
 | 1 ✅ | **Foundations** — repo, schema, connection health page, account setup guide | All accounts connected, health page green |
 | 2 ✅ | Signals + weekly shortlist — RSS + GSC collectors, Gemini scoring, approve screen | A ranked topic list every Monday |
 | 3 ✅ | Content workflow — prompt packs, draft intake, Gemini review, Payload draft push, social copy + UTMs | Articles flow from topic to Payload draft |
-| 4 | Lead-magnet pipeline — landing template, Payload form, Make → Brevo delivery | Downloads deliver by email; contacts stored |
+| 4 ✅ | Lead-magnet pipeline — landing template, Payload form, Make → Brevo delivery | Downloads deliver by email; contacts stored |
 | 5 | Performance — GA4/GSC/forms daily pull, per-piece dashboard, scoring feedback | See traffic + form fills per piece |
 | 6 | Monthly review — refresh / expand / prune recommendations | Monthly action list |
 

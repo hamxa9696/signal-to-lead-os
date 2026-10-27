@@ -7,6 +7,10 @@ export type Frontmatter = {
   meta_title?: string;
   meta_description?: string;
   excerpt?: string;
+  // lead magnets only: landing-page copy
+  landing_lead?: string;
+  landing_bullets?: string[];
+  landing_for?: string[];
 };
 
 export type ParsedDraft = { frontmatter: Frontmatter; body: string; errors: string[] };
@@ -29,9 +33,12 @@ export function parseDraft(raw: string): ParsedDraft {
   } catch (err) {
     errors.push(`Frontmatter is not valid YAML: ${(err as Error).message.split("\n")[0]}`);
   }
-  for (const k of Object.keys(fm) as (keyof Frontmatter)[]) {
-    if (fm[k] != null) fm[k] = String(fm[k]).trim();
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(fm as Record<string, unknown>)) {
+    if (v == null) continue;
+    out[k] = Array.isArray(v) ? v.map((x) => String(x).trim()).filter(Boolean) : String(v).trim();
   }
+  fm = out as Frontmatter;
   return { frontmatter: fm, body: m[2].trim(), errors };
 }
 

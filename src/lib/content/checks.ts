@@ -36,6 +36,21 @@ export function runChecks(d: ParsedDraft, t: TopicFull, k: Knowledge): Check[] {
     add("matome", "Has まとめ section", /^##\s+.*まとめ/m.test(body), false, "");
   } else {
     add("length", "Length ≥ 1,500 chars", chars >= 1500, chars < 800, `${chars.toLocaleString()} chars`);
+    const bullets = fm.landing_bullets ?? [];
+    const forWho = fm.landing_for ?? [];
+    add("landing_lead", "Landing intro (80–220 chars)", len(fm.landing_lead) >= 80 && len(fm.landing_lead) <= 220, true, `${len(fm.landing_lead)} chars`);
+    add("landing_bullets", "3–5 “what you'll learn” bullets", Array.isArray(bullets) && bullets.length >= 3 && bullets.length <= 6, true, `${bullets.length ?? 0}`);
+    add("landing_for", "2–4 “recommended for” bullets", Array.isArray(forWho) && forWho.length >= 2 && forWho.length <= 4, false, `${forWho.length ?? 0}`);
+  }
+
+  // A number promised in the title (10項目 / 5つ / 7選 / 3ステップ) must match the content.
+  const promised = (fm.title ?? "").match(/(\d+)\s*(項目|つの|つ|選|ステップ|のポイント|ポイント)/);
+  if (promised) {
+    const n = Number(promised[1]);
+    const items = isArticle ? (body.match(/^###?\s+/gm) ?? []).length : (body.match(/^\s*(?:[-*]|\d+\.)\s+/gm) ?? []).length;
+    const h2 = (body.match(/^##\s+/gm) ?? []).length;
+    const ok = isArticle ? Math.abs(h2 - n) <= 2 || Math.abs(items - n) <= 2 : Math.abs(items - n) <= 2;
+    add("title_promise", `Title promise “${promised[0]}” matches the content`, ok, !isArticle, isArticle ? `${h2} H2 / ${items} headings` : `${items} items`);
   }
 
   add("no_h1", "No H1 in body", !/^#\s+/m.test(body), true, "");

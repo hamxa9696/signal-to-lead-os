@@ -13,3 +13,6 @@ next-env.d.ts
 
 # os
 .DS_Store
+
+# generated lead-magnet PDFs
+/exports

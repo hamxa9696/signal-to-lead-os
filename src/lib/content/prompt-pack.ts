@@ -58,6 +58,7 @@ export function buildPromptPack(t: TopicFull, k: Knowledge): string {
       ? [
           "- Specific, reusable, worth trading an email address for. No sales pitch inside the content except one closing paragraph.",
           "- The closing paragraph points to the matching service page or the free AI業務診断.",
+          "- You may improve the working title. If the title states a number (〇項目, 〇つ), it must equal the real count in the content.",
         ]
       : [
           "- 4,000–6,000 Japanese characters.",
@@ -81,6 +82,15 @@ export function buildPromptPack(t: TopicFull, k: Knowledge): string {
     "meta_title: 検索結果用タイトル（32字以内）",
     "meta_description: 検索結果用説明文（80〜120字）",
     "excerpt: 一覧ページ用の要約（100〜150字）",
+    ...(isMagnet
+      ? [
+          "landing_lead: ダウンロードページの導入文（2〜3文、120〜200字。誰のどんな課題を解決する資料か）",
+          "landing_bullets:",
+          "  - この資料でわかること（3〜5項目、各40字以内）",
+          "landing_for:",
+          "  - こんな方におすすめ（3項目、各40字以内）",
+        ]
+      : []),
     "---",
     "",
     "## 最初の見出し",

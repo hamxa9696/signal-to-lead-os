@@ -5,6 +5,7 @@ import { collectGsc } from "./collect-gsc";
 import { analyzeSignals } from "./analyze-signals";
 import { makeWeeklyShortlist } from "./weekly-shortlist";
 import { syncPayloadPublications } from "@/lib/content/publish";
+import { syncBrevo } from "./sync-brevo";
 import type { Job, JobResult } from "./types";
 
 const syncPublications: Job = {
@@ -26,7 +27,8 @@ export function jobGroups(opts: { force?: boolean } = {}): Record<string, Job[]>
     analyze: [analyzeSignals],
     shortlist: [shortlist],
     "sync-publications": [syncPublications],
-    daily: [collectFeeds, collectGsc, analyzeSignals, syncPublications], // every morning
+    "sync-brevo": [syncBrevo],
+    daily: [collectFeeds, collectGsc, analyzeSignals, syncPublications, syncBrevo], // every morning
     weekly: [shortlist], // Monday, after daily
   };
 }
