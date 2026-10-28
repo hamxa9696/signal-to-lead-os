@@ -1,59 +1,101 @@
 import Link from "next/link";
+import { sql } from "@/lib/db";
 import { keywordTrends } from "@/lib/trends";
 
+type Span = { start: string; end: string; prevStart: string; prevEnd: string };
+
 /** Dashboard panel: which tracked keywords are pulling in signals now, and how that is changing. */
-export async function TrendingKeywords({ span, label }: { span?: { start: string; end: string; prevStart: string; prevEnd: string }; label?: string }) {
-  const rows = await keywordTrends(16, span);
+export async function TrendingKeywords({ span, label, cat, baseQs }: { span?: Span; label?: string; cat?: string; baseQs: Record<string, string> }) {
+  const [rows, cats] = await Promise.all([
+    keywordTrends(16, span, cat || undefined),
+    sql<{ slug: string; name_en: string; color: string }[]>`select slug, name_en, color from categories where active order by sort, name_en`,
+  ]);
   const max = Math.max(1, ...rows.map((r) => r.now));
   const rising = rows.filter((r) => r.now > r.prev).length;
+  const tab = (slug?: string) => `/performance?${new URLSearchParams({ ...baseQs, ...(slug ? { kw: slug } : {}) })}#kw`;
+  const noise = rows.filter((r) => r.now >= 5 && r.relevant / r.now < 0.3);
+
   return (
-    <section aria-labelledby="kw" className="card overflow-hidden">
-      <div className="flex flex-wrap items-end justify-between gap-3 px-[22px] pt-5 pb-3">
-        <div>
-          <h2 id="kw" className="text-base font-semibold">Trending keywords</h2>
-          <p className="mt-0.5 text-[12.5px] text-faint">
-            Signals each tracked keyword picked up {label ? <>· {label} vs the same length before</> : "in the last 7 days vs the 7 before"} · {rising} rising. Keywords come from your{" "}
-            <Link prefetch={false} href="/categories" className="font-medium text-accent hover:underline">sub-categories</Link> and{" "}
-            <Link prefetch={false} href="/sources" className="font-medium text-accent hover:underline">Google News searches</Link>.
-          </p>
+    <section aria-labelledby="kw" id="kw" className="card scroll-mt-6">
+      <div className="flex flex-col gap-3 px-[22px] pt-5 pb-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold">Trending keywords in Japan</h2>
+            <p className="mt-0.5 text-[12.5px] text-faint">
+              Japanese news articles each keyword picked up · {label ?? "last 7 days"} vs the same length before · {rising} rising. Sources: Google News Japan
+              searches and your <Link prefetch={false} href="/categories" className="font-medium text-accent hover:underline">sub-category</Link> keywords.
+            </p>
+          </div>
         </div>
-        <span className="flex items-center gap-3 text-[11.5px] text-faint">
-          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-accent" /> Signals</span>
-          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-good-dot" /> Relevant</span>
-        </span>
+        <nav aria-label="Keyword category" className="seg self-start">
+          <Link prefetch={false} href={tab()} className={!cat ? "seg-on" : "seg-item"}>All</Link>
+          {cats.map((c) => (
+            <Link key={c.slug} prefetch={false} href={tab(c.slug)} className={cat === c.slug ? "seg-on" : "seg-item"}>
+              <span className="mr-1.5 inline-block h-2 w-2 rounded-sm align-middle" style={{ background: c.color }} />
+              {c.name_en}
+            </Link>
+          ))}
+        </nav>
+        <div className="flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-muted">
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-good-dot" /> <b className="font-semibold text-ink">Relevant</b> — Gemini judged it useful for your personas</span>
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-accent" /> <b className="font-semibold text-ink">Other</b> — collected, but not relevant or not analysed yet</span>
+          <span className="text-faint">Mostly green = the keyword finds useful news · mostly blue = mostly noise</span>
+        </div>
       </div>
       {rows.length === 0 ? (
-        <p className="px-[22px] pb-5 text-sm text-muted">No keyword matches yet. Add keywords to your sub-categories or a Google News search on Sources.</p>
+        <p className="border-t border-line px-[22px] py-5 text-sm text-muted">
+          No articles for these keywords in this period yet. New searches fill in after the next morning collection (06:00 JST).
+        </p>
       ) : (
         <ul className="divide-y divide-line border-t border-line">
           {rows.map((r) => {
             const delta = r.now - r.prev;
+            const other = r.now - r.relevant;
+            const share = r.now ? Math.round((100 * r.relevant) / r.now) : 0;
             const href = r.kind === "search"
               ? `/signals?${new URLSearchParams({ source: `Google News: ${r.keyword}` })}`
               : `/signals?${new URLSearchParams({ q: r.keyword })}`;
             return (
-              <li key={`${r.kind}-${r.keyword}`}>
+              <li key={`${r.kind}-${r.keyword}`} className="group relative">
                 <Link prefetch={false} href={href} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 px-[22px] py-2.5 hover:bg-subtle sm:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_64px_64px]">
                   <span className="min-w-0">
                     <span lang="ja" className="block truncate text-sm font-medium">{r.keyword}</span>
                     <span className="flex items-center gap-1.5 truncate text-[11.5px] text-faint">
                       {r.color && <span className="h-2 w-2 shrink-0 rounded-sm" style={{ background: r.color }} />}
-                      {r.kind === "search" ? "Google News search" : r.niche}
+                      {r.kind === "search" ? `Google News search${r.category ? ` · ${r.category}` : ""}` : `${r.niche}`}
                     </span>
                   </span>
-                  <span className="order-last col-span-2 flex h-2 overflow-hidden rounded-full bg-subtle sm:order-none sm:col-span-1" aria-hidden="true">
+                  <span className="order-last col-span-2 flex h-2.5 overflow-hidden rounded-full bg-subtle sm:order-none sm:col-span-1" aria-label={`${r.relevant} relevant, ${other} other`}>
                     <span className="h-full bg-good-dot" style={{ width: `${(r.relevant / max) * 100}%` }} />
-                    <span className="h-full bg-accent" style={{ width: `${((r.now - r.relevant) / max) * 100}%` }} />
+                    <span className="h-full bg-accent" style={{ width: `${(other / max) * 100}%` }} />
                   </span>
-                  <span className="text-right font-mono text-sm font-semibold tabular-nums" title={`${r.relevant} relevant`}>{r.now}</span>
+                  <span className="text-right font-mono text-sm font-semibold tabular-nums">{r.now}</span>
                   <span className={`hidden text-right font-mono text-[12.5px] tabular-nums sm:block ${r.prev === 0 && r.now > 0 ? "text-accent" : delta > 0 ? "text-good" : delta < 0 ? "text-bad" : "text-faint"}`}>
                     {r.prev === 0 && r.now > 0 ? "new" : delta > 0 ? `▲ ${delta}` : delta < 0 ? `▼ ${-delta}` : "–"}
                   </span>
                 </Link>
+                {/* Hover card: what the bar means for this keyword. */}
+                <div role="tooltip" className="pointer-events-none absolute top-full right-[22px] z-20 hidden w-[300px] rounded-lg bg-ink px-3.5 py-3 text-[12.5px] leading-relaxed text-white shadow-lg group-hover:block">
+                  <p className="font-semibold" lang="ja">{r.keyword}</p>
+                  <p className="mt-1">
+                    <b>{r.now}</b> article{r.now === 1 ? "" : "s"} in this period ({r.prev} in the one before).
+                  </p>
+                  <p className="mt-1 flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-good-dot" /> {r.relevant} relevant ({share}%): useful hooks for your personas</p>
+                  <p className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-accent" /> {other} other: off-topic for you, or still waiting for Gemini</p>
+                  <p className="mt-1.5 text-white/70">
+                    {r.now === 0 ? "Quiet this period." : share >= 70 ? "Mostly green: a high-quality keyword, keep it." : share >= 30 ? "Mixed: some useful news, some noise." : "Mostly blue: mostly noise; consider a more specific phrase."}
+                    {" "}Click to see the articles.
+                  </p>
+                </div>
               </li>
             );
           })}
         </ul>
+      )}
+      {noise.length > 0 && (
+        <p className="border-t border-line px-[22px] py-3 text-[12.5px] text-muted">
+          Mostly noise: <span lang="ja">{noise.map((r) => r.keyword).join("、")}</span>. A more specific phrase on <Link prefetch={false} href="/sources" className="font-medium text-accent hover:underline">Sources</Link> would find better articles.
+        </p>
       )}
     </section>
   );
