@@ -6,13 +6,18 @@ import type { Job } from "./types";
 
 // Skip items older than this: stale news is not worth a Gemini call.
 const MAX_AGE_DAYS = 21;
+// Keyword searches (Google News) return up to 100 items; the newest 30 are plenty.
+const MAX_ITEMS_PER_FEED = 30;
 
 type Source = { id: string; kind: string; name: string; url: string; category: string | null };
 
 async function collectRss(src: Source): Promise<number> {
   const items = parseFeed(await fetchXml(src.url));
   const cutoff = Date.now() - MAX_AGE_DAYS * 86_400_000;
-  const fresh = items.filter((i) => !i.publishedAt || i.publishedAt.getTime() >= cutoff);
+  const fresh = items
+    .filter((i) => !i.publishedAt || i.publishedAt.getTime() >= cutoff)
+    .sort((a, b) => (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0))
+    .slice(0, MAX_ITEMS_PER_FEED);
   if (!fresh.length) return 0;
 
   const rows = fresh.map((i) => ({

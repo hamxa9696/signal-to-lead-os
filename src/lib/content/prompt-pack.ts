@@ -17,6 +17,19 @@ const MAGNET_SPECS: Record<string, string> = {
     "A 2,000–3,000 character mini report: ## 要約 (3 bullets), ## 背景, ## 主なポイント (3–5 H3 findings), ## 日本企業への示唆, ## 次の一手. Cite the background sources by name where you use them.",
 };
 
+function researchBlock(t: TopicFull): string[] {
+  const r = t.research;
+  if (!r || !r.points.length) return [];
+  const src = (n: number) => r.sources.find((s) => s.n === n);
+  return [
+    "",
+    "## Current research (from recent Japanese coverage; cite the publisher by name if you use a point, never invent details)",
+    ...(r.summary ? [`- 概要: ${r.summary}`] : []),
+    ...r.points.map((p) => `- ${p.text}${p.refs.length ? ` 〔${p.refs.map((n) => src(n)?.publisher ?? src(n)?.title ?? n).join("、")}〕` : ""}`),
+    ...(r.questions.length ? ["", "Questions the reader is asking (answer them in the piece):", ...r.questions.map((q) => `- ${q}`)] : []),
+  ];
+}
+
 function targetReader(t: TopicFull): string[] {
   const p = t.persona;
   if (!p) return ["- Target reader: 日本企業の情報システム部門・DX推進・経営企画の管理職"];
@@ -84,6 +97,7 @@ export function buildPromptPack(t: TopicFull, k: Knowledge, existing?: { markdow
     "",
     "## Background sources (for context only: do not copy or translate them)",
     ...sources,
+    ...researchBlock(t),
     "",
     "## Output format (exactly this, nothing before or after)",
     "```",

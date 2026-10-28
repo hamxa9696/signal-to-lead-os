@@ -3,6 +3,8 @@ import { sql } from "@/lib/db";
 import { collectFeeds } from "./collect-feeds";
 import { collectGsc } from "./collect-gsc";
 import { analyzeSignals } from "./analyze-signals";
+import { deepenSignals } from "./deepen-signals";
+import { researchTopics } from "./research-topics";
 import { makeWeeklyShortlist } from "./weekly-shortlist";
 import { syncPayloadPublications } from "@/lib/content/publish";
 import { syncBrevo } from "./sync-brevo";
@@ -27,12 +29,14 @@ export function jobGroups(opts: { force?: boolean } = {}): Record<string, Job[]>
     "collect-feeds": [collectFeeds],
     "collect-gsc": [collectGsc],
     analyze: [analyzeSignals],
+    deepen: [deepenSignals],
+    research: [researchTopics],
     shortlist: [shortlist],
     "sync-publications": [syncPublications],
     "sync-brevo": [syncBrevo],
     "collect-ga4": [collectGa4],
-    daily: [collectFeeds, collectGsc, collectGa4, analyzeSignals, syncPublications, syncBrevo], // every morning
-    weekly: [shortlist], // Monday, after daily
+    daily: [collectFeeds, collectGsc, collectGa4, analyzeSignals, deepenSignals, syncPublications, syncBrevo], // every morning
+    weekly: [shortlist, researchTopics], // Monday, after daily
     "monthly-review": [monthlyReview],
     monthly: [monthlyReview], // 1st of the month
   };

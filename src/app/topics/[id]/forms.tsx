@@ -1,6 +1,6 @@
 "use client";
 import { useActionState } from "react";
-import { buildPdfAction, pushToPayloadAction, rerunReviewAction, saveDraftAction, uploadPdfAction, type ActionState } from "./actions";
+import { buildPdfAction, pushToPayloadAction, rerunReviewAction, researchAction, saveDraftAction, uploadPdfAction, type ActionState } from "./actions";
 
 function Status({ state }: { state: ActionState }) {
   if (!state) return null;
@@ -37,6 +37,19 @@ export function DraftForm({ topicId }: { topicId: string }) {
         </button>
         <Status state={state} />
       </div>
+    </form>
+  );
+}
+
+export function ResearchButton({ topicId, again }: { topicId: string; again: boolean }) {
+  const [state, action, pending] = useActionState(researchAction, null);
+  return (
+    <form action={action} className="flex flex-wrap items-center gap-3">
+      <input type="hidden" name="topicId" value={topicId} />
+      <button disabled={pending} className={`${btn} border border-line-strong hover:bg-subtle`}>
+        {pending ? "Researching… (up to a minute)" : again ? "Research again" : "Research this topic"}
+      </button>
+      <Status state={state} />
     </form>
   );
 }

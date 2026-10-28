@@ -9,7 +9,8 @@ import { adminUrl, payloadReady } from "@/lib/content/publish";
 import { CopyButton } from "../../copy-button";
 import { setTopicStatus } from "../../actions";
 import { markReadyAction, rebuildPackAction } from "./actions";
-import { BuildPdf, DraftForm, PushToPayload, RerunReview, UploadPdf } from "./forms";
+import { BuildPdf, DraftForm, PushToPayload, RerunReview, ResearchButton, UploadPdf } from "./forms";
+import type { Research } from "@/lib/research";
 import { downloadBaseUrl, storageReady } from "@/lib/magnet/storage";
 import { env, has } from "@/lib/env";
 import { pagePerformance, sourcesForPath, topQueriesForPath } from "@/lib/performance";
@@ -103,6 +104,8 @@ export default async function TopicWorkspace({ params }: { params: Promise<{ id:
           </form>
         )}
       </div>
+
+      <ResearchPanel topicId={id} research={topic.research} />
 
       {!active ? (
         <p className="mt-6 card px-4 py-6 text-sm text-muted">
@@ -404,5 +407,65 @@ function MagnetSteps({ topicId, itemId, ready, file, currentVersionId, pub, payl
         )}
       </div>
     </div>
+  );
+}
+
+function ResearchPanel({ topicId, research: r }: { topicId: string; research: Research | null }) {
+  const byN = new Map((r?.sources ?? []).map((s) => [s.n, s]));
+  return (
+    <section aria-label="Research" className="card mt-6 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-semibold">Research &amp; sources</h2>
+          <p className="text-[13px] text-faint">
+            Recent Japanese coverage (Google News) plus the signals behind this topic. Findings cite their sources and go into the prompt pack.
+          </p>
+        </div>
+        <ResearchButton topicId={topicId} again={!!r} />
+      </div>
+      {r && (
+        <div className="mt-4 grid gap-5 md:grid-cols-[1.4fr_1fr]">
+          <div lang="ja" className="min-w-0 space-y-3 text-sm">
+            {r.summary && <p className="text-body">{r.summary}</p>}
+            <ol className="space-y-1.5">
+              {r.points.map((p, i) => (
+                <li key={i} className="flex gap-2">
+                  <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                  <span>
+                    {p.text}{" "}
+                    {p.refs.map((n) => (
+                      <a key={n} href={`#src-${n}`} className="ml-0.5 rounded bg-accent-soft px-1 font-mono text-[11px] text-accent-ink">{n}</a>
+                    ))}
+                  </span>
+                </li>
+              ))}
+            </ol>
+            {r.questions.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-faint">Reader questions</p>
+                <ul className="mt-1 list-disc space-y-0.5 pl-5 text-muted">{r.questions.map((q) => <li key={q}>{q}</li>)}</ul>
+              </div>
+            )}
+          </div>
+          <ol className="min-w-0 space-y-2 text-[13px]">
+            {[...byN.values()].map((s) => (
+              <li key={s.n} id={`src-${s.n}`} className="flex gap-2">
+                <span className="w-5 shrink-0 text-right font-mono text-[11px] text-faint">{s.n}</span>
+                <span className="min-w-0">
+                  {s.url ? (
+                    <a href={s.url} target="_blank" rel="noreferrer" lang="ja" className="line-clamp-2 hover:underline">{s.title}</a>
+                  ) : (
+                    <span lang="ja" className="line-clamp-2">{s.title}</span>
+                  )}
+                  <span className="block text-[11.5px] text-faint">
+                    {s.kind === "signal" ? "Signal · " : ""}{s.publisher ?? ""}{s.date ? ` · ${s.date}` : ""}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </section>
   );
 }

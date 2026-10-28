@@ -20,6 +20,7 @@ export type TopicFull = {
   target_path: string | null;
   service_name: string | null;
   service_url: string | null;
+  research: import("../research").Research | null;
   persona: { name: string; description: string | null; pains: string | null; industries: string[] } | null;
   signals: { title: string; url: string | null; buyer_problem: string | null }[];
 };
@@ -28,7 +29,7 @@ export async function getTopic(id: string): Promise<TopicFull | null> {
   if (!/^[0-9a-f-]{36}$/.test(id)) return null;
   const [t] = await sql<TopicFull[]>`
     select t.id, t.kind, t.magnet_format, t.title_ja, t.title_en, t.primary_keyword, t.secondary_keywords,
-           t.search_intent, t.rationale, t.outline, t.cta, t.status, t.week_of::text, t.origin, t.target_path,
+           t.search_intent, t.rationale, t.outline, t.cta, t.status, t.week_of::text, t.origin, t.target_path, t.research,
            sv.name_ja as service_name, sv.landing_url as service_url,
            case when i.id is null then null
                 else json_build_object('name', i.name, 'description', i.description, 'pains', i.pains, 'industries', i.industries) end as persona,

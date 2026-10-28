@@ -79,3 +79,17 @@ export async function uploadPdfAction(_prev: ActionState, form: FormData): Promi
     return fail(err);
   }
 }
+
+export async function researchAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const id = String(form.get("topicId"));
+  try {
+    const { researchTopic } = await import("@/lib/research");
+    const r = await researchTopic(id);
+    const { ensurePromptPack } = await import("@/lib/content/workflow");
+    await ensurePromptPack(id, true).catch(() => null); // only exists once approved
+    revalidatePath(path(id));
+    return { ok: true, message: `${r.sources.length} sources, ${r.points.length} findings` };
+  } catch (err) {
+    return fail(err);
+  }
+}

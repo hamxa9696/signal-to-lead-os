@@ -12,6 +12,7 @@ const TABS = [
 type Row = {
   title: string; url: string | null; source: string; published_at: Date | null;
   relevance: string | null; service: string | null; buyer_problem: string | null; angle: string | null;
+  deep: { facts?: string[]; implication?: string; persona?: string | null; industries?: string[]; questions?: string[]; full_text?: boolean } | null;
 };
 
 const fmt = (d: Date | null) =>
@@ -24,11 +25,11 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
   const [rows, counts] = await Promise.all([
     sql<Row[]>`
       select s.title, s.url, src.name as source, s.published_at, s.relevance::text,
-             sv.name_ja as service, s.buyer_problem, s.analysis->>'angle' as angle
+             sv.name_ja as service, s.buyer_problem, s.analysis->>'angle' as angle, s.deep
       from signals s join sources src on src.id = s.source_id
       left join services sv on sv.id = s.service_id
       where s.status = ${status}
-      order by s.relevance desc nulls last, coalesce(s.published_at, s.fetched_at) desc
+      order by (s.deep is not null) desc, s.relevance desc nulls last, coalesce(s.published_at, s.fetched_at) desc
       limit 200`,
     sql<{ status: string; n: number }[]>`select status, count(*)::int as n from signals group by status`,
   ]);
@@ -37,7 +38,10 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
       <h1 className="text-xl font-semibold">Signals</h1>
-      <p className="mt-1 text-sm text-muted">News items collected from Japanese sources and scored by Gemini. Showing up to 200.</p>
+      <p className="mt-1 text-sm text-muted">
+        News items collected from Japanese <Link href="/sources" className="underline decoration-line-strong">sources</Link> and scored by Gemini.
+        The strongest are read in full: their facts and reader questions are shown first. Showing up to 200.
+      </p>
 
       <div className="mt-4 flex flex-wrap gap-2 text-sm">
         {TABS.map((t) => (
@@ -67,6 +71,17 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
                 {r.buyer_problem && <>課題: {r.buyer_problem} </>}
                 {r.angle && <span className="text-faint">· 切り口: {r.angle}</span>}
               </p>
+            )}
+            {r.deep && (
+              <div lang="ja" className="mt-2 rounded-lg border-l-2 border-accent bg-accent-soft/50 px-3 py-2 text-[13px]">
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-accent-ink" lang="en">
+                  {r.deep.full_text ? "Read in full" : "Summary only (paywall)"}{r.deep.persona && <> · for {r.deep.persona}</>}
+                  {r.deep.industries?.length ? <> · {r.deep.industries.join("、")}</> : null}
+                </p>
+                <ul className="list-disc space-y-0.5 pl-4 text-body">{r.deep.facts?.map((f) => <li key={f}>{f}</li>)}</ul>
+                {r.deep.implication && <p className="mt-1 text-muted">→ {r.deep.implication}</p>}
+                {r.deep.questions?.length ? <p className="mt-1 text-faint">検索されそうな質問: {r.deep.questions.join(" / ")}</p> : null}
+              </div>
             )}
           </li>
         ))}
