@@ -17,6 +17,20 @@ const MAGNET_SPECS: Record<string, string> = {
     "A 2,000–3,000 character mini report: ## 要約 (3 bullets), ## 背景, ## 主なポイント (3–5 H3 findings), ## 日本企業への示唆, ## 次の一手. Cite the background sources by name where you use them.",
 };
 
+function keywordBlock(t: TopicFull): string[] {
+  const p = t.keyword_plan;
+  if (!p || !p.keywords.length) return [];
+  const of = (role: string) => p.keywords.filter((k) => k.role === role).map((k) => k.kw);
+  return [
+    "",
+    "## Keywords to rank for (real Japanese Google searches; use them naturally, never stuff)",
+    `- Main keyword (title, first paragraph, one H2): ${p.primary}`,
+    of("heading").length ? `- Use as H2 headings (rephrase naturally): ${of("heading").join("、")}` : "",
+    of("long_tail").length ? `- Work into the body text: ${of("long_tail").join("、")}` : "",
+    of("faq").length ? `- Answer as questions in a ## よくある質問 section: ${of("faq").join("、")}` : "",
+  ].filter((l, i) => i === 0 || l !== "");
+}
+
 function researchBlock(t: TopicFull): string[] {
   const r = t.research;
   if (!r || !r.points.length) return [];
@@ -98,6 +112,7 @@ export function buildPromptPack(t: TopicFull, k: Knowledge, existing?: { markdow
     "## Background sources (for context only: do not copy or translate them)",
     ...sources,
     ...researchBlock(t),
+    ...keywordBlock(t),
     "",
     "## Output format (exactly this, nothing before or after)",
     "```",

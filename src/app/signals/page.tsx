@@ -3,6 +3,7 @@ import { sql } from "@/lib/db";
 import { loadTaxonomy } from "@/lib/taxonomy";
 import { loadTargeting } from "@/lib/targeting";
 import { PageHeader } from "../page-header";
+import { TopicTabs } from "../topics/tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -88,8 +89,9 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
 
   return (
     <main className="page">
+      <TopicTabs current="signals" />
       <PageHeader
-        eyebrow="Inputs"
+        eyebrow="What topics are built from"
         title="Signals"
         description={<>News from Japanese <Link href="/sources" className="font-medium text-accent hover:underline">sources</Link>, scored by Gemini and sorted into your <Link href="/categories" className="font-medium text-accent hover:underline">categories</Link>. The strongest are read in full.</>}
       />

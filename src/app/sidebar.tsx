@@ -31,14 +31,13 @@ const GROUPS = [
     label: "Plan",
     links: [
       { href: "/performance", label: "Performance", icon: "performance" },
-      { href: "/topics", label: "Topics", icon: "topics" },
+      { href: "/topics", label: "Topics & signals", icon: "topics", also: ["/signals"] },
       { href: "/review", label: "Monthly review", icon: "review" },
     ],
   },
   {
     label: "Inputs",
     links: [
-      { href: "/signals", label: "Signals", icon: "signals" },
       { href: "/categories", label: "Categories", icon: "categories" },
       { href: "/sources", label: "Sources", icon: "sources" },
       { href: "/audience", label: "Audience", icon: "audience" },
@@ -69,7 +68,7 @@ export function Sidebar({ signOut }: { signOut: (() => Promise<void>) | null }) 
           <div key={g.label} className="flex shrink-0 flex-nowrap gap-0.5 md:flex-col">
             <p className="eyebrow mb-1 ml-3 hidden md:block">{g.label}</p>
             {g.links.map((l) => {
-              const active = path === l.href || path.startsWith(`${l.href}/`);
+              const active = [l.href, ...(("also" in l && l.also) || [])].some((h) => path === h || path.startsWith(`${h}/`));
               return (
                 <Link
                   key={l.href}

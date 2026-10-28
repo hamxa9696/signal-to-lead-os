@@ -93,3 +93,18 @@ export async function researchAction(_prev: ActionState, form: FormData): Promis
     return fail(err);
   }
 }
+
+export async function keywordPlanAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const id = String(form.get("topicId"));
+  try {
+    const { buildKeywordPlan } = await import("@/lib/keywords");
+    const p = await buildKeywordPlan(id);
+    const { ensurePromptPack } = await import("@/lib/content/workflow");
+    await ensurePromptPack(id, true).catch(() => null);
+    revalidatePath(path(id));
+    revalidatePath("/topics");
+    return { ok: true, message: `${p.keywords.length} keywords from ${p.candidates} real searches` };
+  } catch (err) {
+    return fail(err);
+  }
+}

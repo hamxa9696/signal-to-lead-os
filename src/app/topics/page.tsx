@@ -3,6 +3,9 @@ import { sql } from "@/lib/db";
 import { addDays, weekOf } from "@/lib/week";
 import { SCORE_MAX } from "@/jobs/weekly-shortlist";
 import { setTopicStatus } from "../actions";
+import type { KeywordPlan } from "@/lib/keywords";
+import { KeywordButton } from "./keyword-button";
+import { TopicTabs } from "./tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +32,8 @@ type Topic = {
   cta: string | null;
   status: string;
   item_status: string | null;
-  signals: { title: string; url: string | null }[];
+  keyword_plan: KeywordPlan | null;
+  signals: { title: string; url: string | null; source: string; published: string | null; relevance: number | null; why: string | null; niche: string | null }[];
 };
 
 /** Where a topic is in the pipeline, from its own status and its draft's. */
@@ -89,9 +93,14 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
     sql<Topic[]>`
       select t.id, t.kind, t.magnet_format, t.title_ja, t.title_en, t.primary_keyword, t.secondary_keywords,
              t.search_intent, t.origin, sv.name_ja as service, t.score::text,
-             t.score_breakdown, t.rationale, t.outline, t.cta, t.status, ci.status as item_status,
-             coalesce((select json_agg(json_build_object('title', s.title, 'url', s.url))
-                       from topic_signals ts join signals s on s.id = ts.signal_id
+             t.score_breakdown, t.rationale, t.outline, t.cta, t.status, ci.status as item_status, t.keyword_plan,
+             coalesce((select json_agg(json_build_object(
+                         'title', s.title, 'url', s.url, 'source', src.name,
+                         'published', to_char(coalesce(s.published_at, s.fetched_at) at time zone 'Asia/Tokyo', 'DD Mon'),
+                         'relevance', s.relevance, 'why', s.analysis->>'why', 'niche', coalesce(sc.name_en, c.name_en))
+                         order by s.relevance desc nulls last)
+                       from topic_signals ts join signals s on s.id = ts.signal_id join sources src on src.id = s.source_id
+                       left join subcategories sc on sc.id = s.subcategory_id left join categories c on c.id = s.category_id
                        where ts.topic_id = t.id), '[]') as signals
       from topics t
       left join services sv on sv.id = t.service_id
@@ -114,12 +123,14 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
 
   return (
     <main className="page">
+      <TopicTabs current="topics" />
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="eyebrow">
             Week of {fmtWeek(week)} – {fmtWeek(addDays(week, 6))} · JST · {signals} relevant signals
           </p>
-          <h1 className="mt-1.5 text-[28px] font-bold tracking-tight">Weekly shortlist</h1>
+          <h1 className="page-title">Weekly topics</h1>
+          <p className="mt-1.5 max-w-2xl text-sm text-muted">Each topic is built by Gemini from the week&apos;s signals and search demand. Open a topic to see the signals behind it, its keywords and the keywords to rank for.</p>
         </div>
         <div className="flex gap-2">
           <Link href={`/topics?week=${addDays(week, -7)}`} className="btn">
@@ -193,7 +204,8 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
               const score = Math.round(Number(t.score ?? 0));
               const lead = s !== "proposed" && s !== "rejected";
               return (
-                <div key={t.id} className="grid grid-cols-[64px_minmax(0,1fr)_184px_150px_170px] items-center gap-4 border-b border-[#F0F1F4] px-[22px] py-4 last:border-b-0">
+                <div key={t.id} className="border-b border-[#F0F1F4] last:border-b-0">
+                <div className="grid grid-cols-[64px_minmax(0,1fr)_184px_150px_170px] items-center gap-4 px-[22px] pt-4 pb-2">
                   <ScoreRing value={score} strong={lead} />
                   <div className="min-w-0">
                     <Link href={`/topics/${t.id}`} lang="ja" className="block font-jp text-[15px] font-medium leading-normal hover:text-accent-ink">
@@ -202,19 +214,6 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
                     <p className="mt-1 text-[12.5px] text-faint">
                       {KIND(t)} · <span lang="ja">{t.primary_keyword}</span>
                     </p>
-                    {t.rationale && (
-                      <details className="mt-1 text-[12.5px]">
-                        <summary className="cursor-pointer text-faint hover:text-ink">Why this topic</summary>
-                        <p className="mt-1 text-muted">{t.rationale}</p>
-                        {t.signals.length > 0 && (
-                          <ul lang="ja" className="mt-1 space-y-0.5 text-faint">
-                            {t.signals.map((sig, i) => (
-                              <li key={i}>↳ {sig.url ? <a href={sig.url} target="_blank" rel="noreferrer" className="underline decoration-line-strong hover:text-ink">{sig.title}</a> : sig.title}</li>
-                            ))}
-                          </ul>
-                        )}
-                      </details>
-                    )}
                   </div>
                   <Split b={t.score_breakdown} strong={lead} />
                   <span lang="ja" className="text-body">{t.service?.replace(/サービス$/, "") ?? "—"}</span>
@@ -234,6 +233,8 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
                       </Link>
                     )}
                   </div>
+                </div>
+                <TopicDetails t={t} />
                 </div>
               );
             })}
@@ -295,5 +296,108 @@ function StatusButton({ id, status, label, primary }: { id: string; status: stri
         {label}
       </button>
     </form>
+  );
+}
+
+const ROLE: Record<string, string> = { primary: "Main keyword", heading: "Use as headings (H2)", long_tail: "Work into the text", faq: "Answer as FAQ" };
+const COMP: Record<string, { dot: string; label: string }> = {
+  low: { dot: "bg-good-dot", label: "easier to rank" },
+  medium: { dot: "bg-warn-dot", label: "medium competition" },
+  high: { dot: "bg-bad", label: "hard to rank" },
+};
+const SRC: Record<string, string> = { google_suggest: "Google suggestion", search_console: "Your Search Console", topic: "Topic keyword" };
+
+/** Expandable: the signals behind a topic, its keywords, and keywords suggested to rank for. */
+function TopicDetails({ t }: { t: Topic }) {
+  const plan = t.keyword_plan;
+  const groups = plan ? (["primary", "heading", "long_tail", "faq"] as const).map((r) => ({ r, items: plan.keywords.filter((k) => k.role === r) })).filter((g) => g.items.length) : [];
+  const betterPrimary = plan && t.primary_keyword && plan.primary !== t.primary_keyword ? plan.primary : null;
+  return (
+    <details className="group px-[22px] pb-3">
+      <summary className="ml-[80px] inline-flex cursor-pointer list-none items-center gap-1.5 text-[12.5px] font-medium text-accent hover:underline">
+        <span className="transition group-open:rotate-90">›</span>
+        {t.signals.length ? `${t.signals.length} signal${t.signals.length === 1 ? "" : "s"} behind it` : "Evergreen (no news signal)"} · {1 + t.secondary_keywords.length} keywords
+        {plan ? ` · ${plan.keywords.length} suggested to rank for` : " · keyword suggestions not run yet"}
+      </summary>
+      <div className="mt-3 ml-[80px] grid gap-5 rounded-xl border border-line bg-subtle/50 p-4 lg:grid-cols-[1.2fr_0.8fr_1.2fr]">
+        <section className="min-w-0">
+          <h3 className="eyebrow">Why this topic</h3>
+          {t.rationale && <p className="mt-1.5 text-[13px] text-body">{t.rationale}</p>}
+          <h3 className="eyebrow mt-4">Signals behind it</h3>
+          {t.signals.length ? (
+            <ul className="mt-1.5 flex flex-col gap-2.5">
+              {t.signals.map((sig, i) => (
+                <li key={i} className="text-[13px]">
+                  <p lang="ja" className="font-medium leading-snug">
+                    {sig.url ? <a href={sig.url} target="_blank" rel="noreferrer" className="hover:underline">{sig.title}</a> : sig.title}
+                  </p>
+                  <p className="text-[12px] text-faint">
+                    {sig.source}{sig.published ? ` · ${sig.published}` : ""}{sig.niche ? ` · ${sig.niche}` : ""}
+                    {sig.relevance != null && ` · relevance ${Number(sig.relevance).toFixed(2)}`}
+                  </p>
+                  {sig.why && <p className="text-[12px] text-muted">{sig.why}</p>}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-1.5 text-[13px] text-muted">An evergreen search topic: chosen for steady Google demand, not a news item.</p>
+          )}
+        </section>
+
+        <section className="min-w-0">
+          <h3 className="eyebrow">Keywords</h3>
+          <p className="mt-1.5 text-[12px] text-faint">Main keyword</p>
+          <p lang="ja" className="text-[14px] font-semibold">{t.primary_keyword ?? "—"}</p>
+          {betterPrimary && (
+            <p className="mt-1 rounded-md bg-accent-soft px-2 py-1 text-[12px] text-accent-ink">
+              Gemini suggests <span lang="ja" className="font-semibold">「{betterPrimary}」</span> as a stronger main keyword.
+            </p>
+          )}
+          {t.secondary_keywords.length > 0 && (
+            <>
+              <p className="mt-3 text-[12px] text-faint">Secondary keywords</p>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {t.secondary_keywords.map((k) => <span key={k} lang="ja" className="rounded-full bg-surface px-2.5 py-0.5 text-[12.5px] ring-1 ring-line">{k}</span>)}
+              </div>
+            </>
+          )}
+          {t.search_intent && <p className="mt-3 text-[12px] text-faint">Search intent: <span className="text-body">{t.search_intent}</span></p>}
+        </section>
+
+        <section className="min-w-0">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="eyebrow">Suggested keywords to rank for</h3>
+            <KeywordButton topicId={t.id} again={!!plan} />
+          </div>
+          {plan ? (
+            <>
+              <p className="mt-1 text-[12px] text-faint">Picked by Gemini from {plan.candidates} real Japanese searches (Google suggestions{"\u00a0"}+ Search Console). Hover a keyword for why.</p>
+              <div className="mt-2 flex flex-col gap-2.5">
+                {groups.map((g) => (
+                  <div key={g.r}>
+                    <p className="text-[12px] font-semibold text-muted">{ROLE[g.r]}</p>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      {g.items.map((k) => (
+                        <span key={k.kw} title={`${k.why} · ${COMP[k.competition].label} · ${k.intent} · ${SRC[k.source]}`} className="inline-flex cursor-help items-center gap-1.5 rounded-full bg-surface px-2.5 py-0.5 text-[12.5px] ring-1 ring-line">
+                          <span className={`h-1.5 w-1.5 rounded-full ${COMP[k.competition].dot}`} />
+                          <span lang="ja">{k.kw}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2.5 flex flex-wrap gap-3 text-[11.5px] text-faint">
+                <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-good-dot" /> easier to rank</span>
+                <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-warn-dot" /> medium</span>
+                <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-bad" /> hard</span>
+              </p>
+            </>
+          ) : (
+            <p className="mt-1.5 text-[13px] text-muted">Not run yet for this topic. It runs automatically after the Monday shortlist, or click the button.</p>
+          )}
+        </section>
+      </div>
+    </details>
   );
 }
