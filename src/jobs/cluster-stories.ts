@@ -18,6 +18,22 @@ export function splitOutlet(title: string, sourceName: string, isSearch: boolean
   return { title, outlet: sourceName };
 }
 
+/** Character pairs of a normalised headline, for spotting near-identical titles without Gemini. */
+function grams(t: string): Set<string> {
+  const n = t.normalize("NFKC").toLowerCase().replace(/[\s\p{P}\p{S}]/gu, "");
+  const g = new Set<string>();
+  for (let i = 0; i < n.length - 1; i++) g.add(n.slice(i, i + 2));
+  return g;
+}
+/** Share of the shorter title's character pairs found in the other (1 = same headline). */
+function overlap(a: Set<string>, b: Set<string>): number {
+  if (!a.size || !b.size) return 0;
+  let hit = 0;
+  for (const x of a) if (b.has(x)) hit++;
+  return hit / Math.min(a.size, b.size);
+}
+const SAME_HEADLINE = 0.72;
+
 const Out = z.preprocess((v) => (Array.isArray(v) ? { items: v } : v), z.object({
   items: z.array(z.object({ i: z.number().int(), story: z.string() })),
 }));
@@ -63,48 +79,66 @@ export const clusterStories: Job = {
           where last_seen >= now() - interval '7 days'
             and ${cat === "none" ? sql`category_id is null` : sql`category_id = ${cat}`}
           order by last_seen desc limit 80`;
-        let items: z.infer<typeof Out>["items"];
-        try {
-          ({ items } = await generateJson(
-            [
-              "Group Japanese news headlines into STORIES. A story = one specific event or announcement",
-              "(same company + same action, same regulation, same report), reported by any outlet. Articles that",
-              "only share a topic (e.g. two different companies adopting AI) are DIFFERENT stories.",
-              "For each NEW item return story = an EXISTING story id like \"S3\" if it reports that same event,",
-              "or a new group label like \"N1\" (reuse the same N label for new items about the same event).",
-              "",
-              "EXISTING STORIES:",
-              ...(existing.length ? existing.map((s, i) => `S${i} ${s.title}`) : ["(none)"]),
-              "",
-              "NEW ITEMS:",
-              ...batch.map((r, i) => `[${i}] ${clean.get(r.id)}`),
-              "",
-              'Return ONLY JSON: {"items":[{"i":0,"story":"N1"}]} with one entry per new item.',
-            ].join("\n"),
-            Out,
-            { temperature: 0, prefer: "gemini-3.5-flash-lite" },
-          ));
-        } catch (err) {
-          failed.push((err as Error).message.slice(0, 160));
-          continue;
-        }
-        const newGroups = new Map<string, string>(); // N label -> story id
+        // 1) Near-identical headlines (same press release republished) need no AI.
+        const existingGrams = existing.map((e) => ({ id: e.id, g: grams(e.title) }));
+        const decided = new Map<number, string>(); // batch index -> story id
+        const local: { g: Set<string>; story: string }[] = [];
+        const makeStory = async (r: NewRow) => {
+          const [row] = await sql<{ id: string }[]>`
+            insert into stories (title, category_id, first_seen, last_seen)
+            values (${clean.get(r.id)!}, ${r.category_id}, ${r.at}, ${r.at}) returning id`;
+          created++;
+          return row.id;
+        };
         for (const [i, r] of batch.entries()) {
-          const label = items.find((x) => x.i === i)?.story?.trim() ?? `N-solo-${i}`;
-          let storyId: string | undefined;
-          const s = /^S(\d+)$/.exec(label);
-          if (s && existing[Number(s[1])]) storyId = existing[Number(s[1])].id;
-          else {
-            storyId = newGroups.get(label);
-            if (!storyId) {
-              const [row] = await sql<{ id: string }[]>`
-                insert into stories (title, category_id, first_seen, last_seen)
-                values (${clean.get(r.id)!}, ${r.category_id}, ${r.at}, ${r.at}) returning id`;
-              storyId = row.id;
-              newGroups.set(label, storyId);
-              created++;
-            }
+          const g = grams(clean.get(r.id)!);
+          const hit = existingGrams.find((e) => overlap(g, e.g) >= SAME_HEADLINE) ?? local.find((l) => overlap(g, l.g) >= SAME_HEADLINE);
+          if (hit) decided.set(i, "id" in hit ? hit.id : hit.story);
+        }
+
+        // 2) Gemini groups the rest by meaning (same event reported differently).
+        const rest = batch.map((r, i) => ({ r, i })).filter(({ i }) => !decided.has(i));
+        let items: z.infer<typeof Out>["items"] = [];
+        if (rest.length) {
+          try {
+            ({ items } = await generateJson(
+              [
+                "Group Japanese news headlines into STORIES. A story = one specific event or announcement",
+                "(same company + same action, same regulation, same report), reported by any outlet. Articles that",
+                "only share a topic (e.g. two different companies adopting AI) are DIFFERENT stories.",
+                "For each NEW item return story = an EXISTING story id like \"S3\" if it reports that same event,",
+                "or a new group label like \"N1\" (reuse the same N label for new items about the same event).",
+                "",
+                "EXISTING STORIES:",
+                ...(existing.length ? existing.map((st, k) => `S${k} ${st.title}`) : ["(none)"]),
+                "",
+                "NEW ITEMS:",
+                ...rest.map(({ r }, k) => `[${k}] ${clean.get(r.id)}`),
+                "",
+                'Return ONLY JSON: {"items":[{"i":0,"story":"N1"}]} with one entry per new item.',
+              ].join("\n"),
+              Out,
+              { temperature: 0, prefer: "gemini-3.5-flash-lite" },
+            ));
+          } catch (err) {
+            failed.push((err as Error).message.slice(0, 160)); // fall back to one story per article below
           }
+        }
+        const newGroups = new Map<string, string>();
+        for (const [k, { r, i }] of rest.entries()) {
+          const label = items.find((x) => x.i === k)?.story?.trim() ?? `solo-${i}`;
+          const sm = /^S(\d+)$/.exec(label);
+          let storyId = sm && existing[Number(sm[1])] ? existing[Number(sm[1])].id : newGroups.get(label);
+          if (!storyId) {
+            storyId = await makeStory(r);
+            if (!label.startsWith("solo-")) newGroups.set(label, storyId);
+            local.push({ g: grams(clean.get(r.id)!), story: storyId });
+          }
+          decided.set(i, storyId);
+        }
+
+        for (const [i, r] of batch.entries()) {
+          const storyId = decided.get(i) ?? (await makeStory(r));
           await sql`update signals set story_id = ${storyId}, clustered_at = now() where id = ${r.id}`;
           touched.add(storyId);
           assigned++;

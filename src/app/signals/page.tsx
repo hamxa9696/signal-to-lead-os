@@ -176,7 +176,7 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
             </p>
           )}
           <ul className="card divide-y divide-line">
-        {storyView && <StoriesList where={storyWhere} personas={targeting.personas} />}
+        {storyView && <StoriesList where={storyWhere} signalWhere={sql`${filter} ${kwFilter} ${srcFilter} ${typeFilter}`} personas={targeting.personas} />}
         {!storyView && rows.map((r, i) => (
           <li key={i} className="px-5 py-4">
             <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs text-faint">

@@ -1,7 +1,7 @@
 import type { PendingQuery, Row as PgRow } from "postgres";
 import { sql } from "@/lib/db";
 import { loadTaxonomy } from "@/lib/taxonomy";
-import { STRENGTH_MAX, type StrengthParts } from "@/lib/strength";
+import { STRENGTH_MAX, storyStrength, type StrengthParts } from "@/lib/strength";
 import { typeInfo } from "@/lib/signal-types";
 import { HoverCard } from "../hover-card";
 import { Rate } from "./rate";
@@ -10,6 +10,7 @@ import { fmt, WhyPanel, type Row } from "./why-panel";
 type Story = {
   id: string; title: string; signal_type: string | null; articles: number; outlets: number; strength: number;
   strength_parts: StrengthParts | null; first_seen: Date; last_seen: Date; feedback: number | null; sub: string | null; cat: string | null; color: string | null;
+  pending?: boolean; // not grouped yet: a single article shown as its own story
 };
 type Member = Row & { story_id: string; outlet: string | null; at: Date };
 
@@ -61,7 +62,7 @@ function StrengthBadge({ s }: { s: Story }) {
   );
 }
 
-export async function StoriesList({ where, personas }: { where: PendingQuery<PgRow[]>; personas: { id: string; name: string }[] }) {
+export async function StoriesList({ where, signalWhere, personas }: { where: PendingQuery<PgRow[]>; signalWhere: PendingQuery<PgRow[]>; personas: { id: string; name: string }[] }) {
   const [stories, tax] = await Promise.all([
     sql<Story[]>`
       select st.id, st.title, st.signal_type, st.articles, st.outlets, st.strength, st.strength_parts,
@@ -75,7 +76,7 @@ export async function StoriesList({ where, personas }: { where: PendingQuery<PgR
     loadTaxonomy(),
   ]);
   const ids = stories.map((s) => s.id);
-  const members = ids.length
+  const members: Member[] = ids.length
     ? await sql<Member[]>`
         select s.story_id, s.title, s.url, src.name as source, s.published_at, s.relevance::text,
                sv.name_ja as service, s.buyer_problem, s.analysis->>'angle' as angle, s.deep,
@@ -91,7 +92,33 @@ export async function StoriesList({ where, personas }: { where: PendingQuery<PgR
         order by s.relevance desc nulls last, at desc`
     : [];
 
-  if (!stories.length) return <li className="px-5 py-6 text-sm text-faint">No stories here yet.</li>;
+  // Relevant articles not grouped yet (grouping runs each morning) still show, as one-article stories.
+  const loose = await sql<(Member & { tier: string; signal_type: string | null; id: string })[]>`
+    select s.id, s.id as story_id, s.title, s.url, src.name as source, s.published_at, s.relevance::text,
+           sv.name_ja as service, s.buyer_problem, s.analysis->>'angle' as angle, s.deep,
+           coalesce(nullif(sc.name_ja, ''), sc.name_en) as sub,
+           src.category as source_kind, src.url as source_url, s.summary, left(s.body, 6000) as body, s.status,
+           s.analysis->>'why' as why, s.analysis->>'sort_why' as sort_why, s.analysis->>'sort_by' as sort_by,
+           s.subcategory_id, s.category_id, s.analyzed_at, s.deep->>'persona' as persona_from_deep,
+           coalesce(s.outlet, src.name) as outlet, coalesce(s.published_at, s.fetched_at) as at, src.tier, s.signal_type
+    from signals s join sources src on src.id = s.source_id
+    left join services sv on sv.id = s.service_id
+    left join subcategories sc on sc.id = s.subcategory_id
+    where s.status = 'analyzed' and s.story_id is null
+      and coalesce(s.published_at, s.fetched_at) >= now() - interval '21 days' ${signalWhere}
+    order by s.relevance desc nulls last limit 120`;
+  for (const l of loose) {
+    const outlet = l.source_kind === "keyword_search" && l.title.lastIndexOf(" - ") > 0 ? l.title.slice(l.title.lastIndexOf(" - ") + 3) : l.outlet ?? l.source;
+    const { total, parts } = storyStrength([{ relevance: Number(l.relevance ?? 0), outlet: outlet ?? "", tier: l.tier, at: new Date(l.at), deep: l.deep }]);
+    stories.push({
+      id: l.id, title: l.title, signal_type: l.signal_type, articles: 1, outlets: 1, strength: total, strength_parts: parts,
+      first_seen: l.at, last_seen: l.at, feedback: null, sub: l.sub, cat: null, color: null, pending: true,
+    });
+    members.push(l);
+  }
+  stories.sort((a, b) => b.strength - a.strength || +new Date(b.last_seen) - +new Date(a.last_seen));
+
+  if (!stories.length) return <li className="px-5 py-6 text-sm text-faint">No relevant news here in the last 21 days. Try another category or type, or &ldquo;All&rdquo;.</li>;
   return (
     <>
       {stories.map((s) => {
@@ -111,7 +138,8 @@ export async function StoriesList({ where, personas }: { where: PendingQuery<PgR
                 <span translate="no" className="notranslate">{s.articles} article{s.articles === 1 ? "" : "s"} · {s.outlets} outlet{s.outlets === 1 ? "" : "s"}</span>
                 <span>· latest {ago(s.last_seen)}</span>
                 {s.sub && <span>· {s.sub}</span>}
-                <span className="ml-auto"><Rate id={s.id} initial={s.feedback} /></span>
+                {s.pending && <span title="Grouped with other outlets' coverage at the next morning run">· not grouped yet</span>}
+                <span className="ml-auto">{!s.pending && <Rate id={s.id} initial={s.feedback} />}</span>
               </div>
               <p lang="ja" className="mt-1 font-medium leading-snug">
                 {rep?.url ? <a href={rep.url} target="_blank" rel="noreferrer" className="hover:underline">{s.title}</a> : s.title}
