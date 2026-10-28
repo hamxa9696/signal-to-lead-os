@@ -15,11 +15,11 @@ type Story = {
 type Member = Row & { story_id: string; outlet: string | null; at: Date };
 
 const PART_LABEL: Record<keyof typeof STRENGTH_MAX, { label: string; color: string; what: string }> = {
-  relevance: { label: "Relevance", color: "#4F46E5", what: "How useful it is for your personas, industries and services." },
-  coverage: { label: "Coverage", color: "#0E9F6E", what: "How many independent outlets reported it." },
-  momentum: { label: "Momentum", color: "#D97706", what: "Whether coverage is rising or fading." },
-  source: { label: "Source weight", color: "#2E6BE6", what: "How authoritative the strongest source is." },
-  evidence: { label: "Evidence", color: "#7C4DDB", what: "Whether the full article was read." },
+  relevance: { label: "Relevance", color: "#2F6B55", what: "How useful it is for your personas, industries and services." },
+  coverage: { label: "Coverage", color: "#7FA58E", what: "How many independent outlets reported it." },
+  momentum: { label: "Momentum", color: "#C8735A", what: "Whether coverage is rising or fading." },
+  source: { label: "Source weight", color: "#4E7A8C", what: "How authoritative the strongest source is." },
+  evidence: { label: "Evidence", color: "#8A5A7A", what: "Whether the full article was read." },
 };
 
 const ago = (d: Date) => {

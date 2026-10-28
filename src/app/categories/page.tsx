@@ -53,7 +53,7 @@ export default async function CategoriesPage() {
           <form action={saveCategory} className="grid gap-3 px-5 pb-5 md:grid-cols-[1fr_1fr_90px_2fr_auto] md:items-end">
             <label className={label}>Name (English)<input name="name_en" required className={`${input} ${field}`} /></label>
             <label className={label}>Name (Japanese)<input name="name_ja" lang="ja" className={`${input} ${field}`} /></label>
-            <label className={label}>Colour<input name="color" type="color" defaultValue="#4F46E5" className={`${field} h-9 w-full rounded-lg border border-line-strong`} /></label>
+            <label className={label}>Colour<input name="color" type="color" defaultValue="#2F6B55" className={`${field} h-9 w-full rounded-lg border border-line-strong`} /></label>
             <label className={label}>Description<input name="description" className={`${input} ${field}`} /></label>
             <Submit label="Add category" />
           </form>

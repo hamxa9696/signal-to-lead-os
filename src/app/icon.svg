@@ -1,9 +1,0 @@
-<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="32" cy="32" r="30" fill="#F6F2E7"/>
-  <circle cx="45" cy="20" r="7.5" fill="#DDB86B"/>
-  <path d="M2 44 C16 48 26 40 40 45 C50 48 56 44 62 45 L62 62 L2 62 Z" fill="#2E5D3B" opacity="0.9"/>
-  <text x="32" y="34" text-anchor="middle" dominant-baseline="central"
-        font-family="'Hiragino Kaku Gothic ProN','Noto Sans JP','Yu Gothic',sans-serif"
-        font-weight="800" font-size="34" fill="#1F5233">結</text>
-  <circle cx="32" cy="32" r="30" fill="none" stroke="#2E5D3B" stroke-width="2.5"/>
-</svg>

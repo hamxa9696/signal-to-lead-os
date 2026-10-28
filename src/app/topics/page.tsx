@@ -64,22 +64,22 @@ const PILL: Record<string, { label: string; cls: string }> = {
 /** The four parts of a topic's 0–100 score. Colours are used for the bars, legend and labels. */
 const PARTS = [
   {
-    key: "demand", short: "Demand", max: SCORE_MAX.demand, color: "#2E6BE6",
+    key: "demand", short: "Demand", max: SCORE_MAX.demand, color: "#4E7A8C",
     what: "How many people search for this topic on Google.",
     how: "Search Console impressions for the keyword over the last 28 days: 1,000+ = full 40, scaled down logarithmically. Until Search Console is connected, Gemini estimates demand and the score is capped at 20.",
   },
   {
-    key: "fit", short: "Service fit", max: SCORE_MAX.fit, color: "#7C4DDB",
+    key: "fit", short: "Service fit", max: SCORE_MAX.fit, color: "#8A5A7A",
     what: "How directly the topic leads a reader to a Renesis service.",
     how: "Gemini rates the fit 0–10 against your services list, × 3.",
   },
   {
-    key: "freshness", short: "Freshness", max: SCORE_MAX.freshness, color: "#0E9F6E",
+    key: "freshness", short: "Freshness", max: SCORE_MAX.freshness, color: "#7FA58E",
     what: "How recent the news behind the topic is.",
     how: "Newest linked news item: ≤ 3 days = 20, ≤ 7 days = 15, ≤ 14 days = 10, older = 5. Evergreen topics with no news get 10.",
   },
   {
-    key: "performance", short: "Past results", max: SCORE_MAX.performance, color: "#D97706",
+    key: "performance", short: "Past results", max: SCORE_MAX.performance, color: "#C8735A",
     what: "How similar pieces you already published performed.",
     how: "Past pieces for the same service (and lead-magnet format) vs your average piece, first 90 days; one lead counts as 30 visits. 5 = average or not enough history yet.",
   },
@@ -201,7 +201,7 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
       ) : (
         <section aria-label="Topics" className="card overflow-x-auto">
           <div className="min-w-[900px]">
-            <div className="eyebrow grid grid-cols-[64px_minmax(0,1fr)_184px_150px_170px] gap-4 rounded-t-[14px] border-b border-line bg-[#FAFAFB] px-[22px] py-3 text-[10.5px]">
+            <div className="eyebrow grid grid-cols-[64px_minmax(0,1fr)_184px_150px_170px] gap-4 rounded-t-[14px] border-b border-line bg-[#FAF6EE] px-[22px] py-3 text-[10.5px]">
               <span>Score</span>
               <span>Topic</span>
               <span>Score split</span>
@@ -213,7 +213,7 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
               const score = Math.round(Number(t.score ?? 0));
               const lead = s !== "proposed" && s !== "rejected";
               return (
-                <div key={t.id} className="border-b border-[#F0F1F4] last:border-b-0">
+                <div key={t.id} className="border-b border-[#EDE6D8] last:border-b-0">
                 <div className="grid grid-cols-[64px_minmax(0,1fr)_184px_150px_170px] items-center gap-4 px-[22px] pt-4 pb-2">
                   <ScoreRing value={score} strong={lead} />
                   <div className="min-w-0">
@@ -267,8 +267,8 @@ function ScoreRing({ value, strong }: { value: number; strong: boolean }) {
   return (
     <div className="relative h-12 w-12">
       <svg width="48" height="48" viewBox="0 0 48 48" role="img" aria-label={`Score ${value} of 100`} fill="none" strokeWidth="4">
-        <circle cx="24" cy="24" r="20" stroke="#EEF0F3" />
-        <circle cx="24" cy="24" r="20" stroke={strong ? "var(--color-accent)" : "#98A2B3"} strokeDasharray={`${(value / 100) * c} ${c}`} strokeLinecap="round" transform="rotate(-90 24 24)" />
+        <circle cx="24" cy="24" r="20" stroke="#EDE6D8" />
+        <circle cx="24" cy="24" r="20" stroke={strong ? "var(--color-accent)" : "#A29A88"} strokeDasharray={`${(value / 100) * c} ${c}`} strokeLinecap="round" transform="rotate(-90 24 24)" />
       </svg>
       <span className="absolute inset-0 flex items-center justify-center font-mono text-sm font-medium">{value}</span>
     </div>

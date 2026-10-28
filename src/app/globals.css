@@ -1,45 +1,52 @@
 @import "tailwindcss";
 
-/* B Light — premium light theme. Named colours used across the app. */
+/* Kizashi (兆し) — colours taken from the logo: washi paper, forest ink, sage leaf, terracotta sprout tip. */
 @theme {
-  --color-canvas: #F4F5F7;
-  --color-surface: #FFFFFF;
-  --color-sidebar: #FBFBFC;
-  --color-ink: #0B1220;
-  --color-body: #344054;
-  --color-muted: #475467;
-  --color-faint: #667085;
-  --color-line: #E4E7EC;
-  --color-line-strong: #D0D5DD;
-  --color-subtle: #F2F4F7;
-  --color-accent: #4F46E5;
-  --color-accent-ink: #3B35C9;
-  --color-accent-soft: #EEF0FF;
-  --color-good: #0B7A52;
-  --color-good-soft: #E8F6EF;
-  --color-good-dot: #12A06B;
-  --color-warn: #9A5B0B;
-  --color-warn-soft: #FEF5E7;
-  --color-warn-dot: #D9911A;
-  --color-bad: #B42318;
-  --color-bad-soft: #FEF3F2;
+  --color-canvas: #F5F1E8;
+  --color-surface: #FFFDF8;
+  --color-sidebar: #F9F5EC;
+  --color-ink: #1E3A31;
+  --color-body: #3D4A44;
+  --color-muted: #56625C;
+  --color-faint: #7A847E;
+  --color-line: #E6DFD0;
+  --color-line-strong: #D6CDBA;
+  --color-subtle: #F0EADD;
+  --color-accent: #2F6B55;
+  --color-accent-ink: #1F4D3E;
+  --color-accent-soft: #E4EFE8;
+  --color-sage: #7FA58E;
+  --color-sand: #D8CBB0;
+  --color-sprout: #C8735A;
+  --color-sprout-soft: #F7E6DF;
+  --color-good: #2F7D5B;
+  --color-good-soft: #E3F1E8;
+  --color-good-dot: #4C9A72;
+  --color-warn: #A0671B;
+  --color-warn-soft: #FBF1DF;
+  --color-warn-dot: #D49A3A;
+  --color-bad: #B4432F;
+  --color-bad-soft: #FBEAE5;
 
   --font-sans: var(--font-inter-tight), var(--font-noto-jp), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
   --font-jp: var(--font-noto-jp), var(--font-inter-tight), sans-serif;
+  /* Mincho for titles, echoing the brushed 兆し in the logo. System fonts: no download. */
+  --font-mincho: "Hiragino Mincho ProN", "Hiragino Mincho Pro", "Yu Mincho", YuMincho, "Noto Serif JP", "Source Han Serif JP", Georgia, serif;
 }
 
 @utility card {
   background: var(--color-surface);
   border: 1px solid var(--color-line);
   border-radius: 14px;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  box-shadow: 0 1px 2px rgba(30, 58, 49, 0.05);
 }
 
 @utility eyebrow {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
-  letter-spacing: 0.08em;
+  font-weight: 600;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--color-faint);
 }
@@ -70,7 +77,19 @@ body {
   @apply mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 md:px-9;
 }
 @utility page-title {
-  @apply mt-1.5 text-[28px] leading-tight font-bold tracking-tight;
+  @apply mt-1.5 text-[30px] leading-tight font-bold tracking-normal;
+  font-family: var(--font-mincho);
+}
+
+/* The short terracotta line under each page title, from the logo. */
+.page-title::after {
+  content: "";
+  display: block;
+  width: 32px;
+  height: 2px;
+  margin-top: 10px;
+  border-radius: 2px;
+  background: var(--color-sprout);
 }
 @utility btn {
   @apply inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-line-strong bg-surface px-3.5 py-1.5 text-sm font-medium text-ink shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:bg-subtle disabled:opacity-50;

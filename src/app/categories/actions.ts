@@ -24,7 +24,7 @@ export async function saveCategory(form: FormData): Promise<void> {
     name_en,
     name_ja: str(form, "name_ja"),
     description: str(form, "description") || null,
-    color: /^#[0-9a-f]{6}$/i.test(str(form, "color")) ? str(form, "color") : "#4F46E5",
+    color: /^#[0-9a-f]{6}$/i.test(str(form, "color")) ? str(form, "color") : "#2F6B55",
     active: UUID.test(id) ? form.get("active") === "on" : true,
   };
   let catId = id;

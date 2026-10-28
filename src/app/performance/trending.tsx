@@ -55,9 +55,9 @@ export async function TrendingKeywords({ period, cat, baseQs }: { period: TrendP
         </nav>
         </div>
         <div className="flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-muted">
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-good-dot" /> <b className="font-semibold text-ink">Relevant</b> — Gemini judged it useful for your personas</span>
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-accent" /> <b className="font-semibold text-ink">Other</b> — collected, but not relevant or not analysed yet</span>
-          <span className="text-faint">Mostly green = the keyword finds useful news · mostly blue = mostly noise</span>
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-accent" /> <b className="font-semibold text-ink">Relevant</b> — Gemini judged it useful for your personas</span>
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-sand" /> <b className="font-semibold text-ink">Other</b> — collected, but not relevant or not analysed yet</span>
+          <span className="text-faint">Mostly green = the keyword finds useful news · mostly sand = mostly noise</span>
         </div>
       </div>
       {rows.length === 0 ? (
@@ -66,7 +66,7 @@ export async function TrendingKeywords({ period, cat, baseQs }: { period: TrendP
         </p>
       ) : (
         <>
-        <div translate="no" className="eyebrow hidden grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_64px_72px_64px] gap-x-4 border-t border-line bg-[#FAFAFB] px-[22px] py-2 text-[10.5px] sm:grid">
+        <div translate="no" className="eyebrow hidden grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_64px_72px_64px] gap-x-4 border-t border-line bg-[#FAF6EE] px-[22px] py-2 text-[10.5px] sm:grid">
           <span>Keyword</span><span>Relevant / other</span><span className="text-right">Articles</span><span className="text-right">Latest</span><span className="text-right">vs before</span>
         </div>
         <ul className="divide-y divide-line border-t border-line">
@@ -88,8 +88,8 @@ export async function TrendingKeywords({ period, cat, baseQs }: { period: TrendP
                     </span>
                   </span>
                   <span className="order-last col-span-2 flex h-2.5 overflow-hidden rounded-full bg-subtle sm:order-none sm:col-span-1" aria-label={`${r.relevant} relevant, ${other} other`}>
-                    <span className="h-full bg-good-dot" style={{ width: `${(r.relevant / max) * 100}%` }} />
-                    <span className="h-full bg-accent" style={{ width: `${(other / max) * 100}%` }} />
+                    <span className="h-full bg-accent" style={{ width: `${(r.relevant / max) * 100}%` }} />
+                    <span className="h-full bg-sand" style={{ width: `${(other / max) * 100}%` }} />
                   </span>
                   <span translate="no" className="notranslate text-right font-mono text-sm font-semibold tabular-nums">{r.now}</span>
                   <span translate="no" className={`notranslate hidden text-right font-mono text-[12px] tabular-nums sm:block ${ago(r.latest).fresh ? "font-semibold text-good" : "text-faint"}`}>
@@ -105,10 +105,10 @@ export async function TrendingKeywords({ period, cat, baseQs }: { period: TrendP
                   <p className="mt-1">
                     <b>{r.now}</b> article{r.now === 1 ? "" : "s"} in the last {label} ({r.prev} in the {label} before). Newest: {ago(r.latest).text}.
                   </p>
-                  <p className="mt-1 flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-good-dot" /> {r.relevant} relevant ({share}%): useful hooks for your personas</p>
-                  <p className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-accent" /> {other} other: off-topic for you, or still waiting for Gemini</p>
+                  <p className="mt-1 flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-[#7FA58E]" /> {r.relevant} relevant ({share}%): useful hooks for your personas</p>
+                  <p className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-sand" /> {other} other: off-topic for you, or still waiting for Gemini</p>
                   <p className="mt-1.5 text-white/70">
-                    {r.now === 0 ? "Quiet this period." : share >= 70 ? "Mostly green: a high-quality keyword, keep it." : share >= 30 ? "Mixed: some useful news, some noise." : "Mostly blue: mostly noise; consider a more specific phrase."}
+                    {r.now === 0 ? "Quiet this period." : share >= 70 ? "Mostly green: a high-quality keyword, keep it." : share >= 30 ? "Mixed: some useful news, some noise." : "Mostly sand: mostly noise; consider a more specific phrase."}
                     {" "}Click to see the articles.
                   </p>
                 </div>

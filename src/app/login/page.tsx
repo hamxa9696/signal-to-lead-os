@@ -5,19 +5,13 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-16">
       <div className="card w-full max-w-[400px] px-8 py-9">
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-ink">
-            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="var(--color-accent)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 12h4l3-7 4 14 3-7h4" />
-            </svg>
-          </span>
-          <span>
-            <span className="block font-bold tracking-tight">Kizashi <span lang="ja" className="ml-0.5 text-[12px] font-medium text-faint">兆し</span></span>
-            <span className="block text-[11px] text-faint">Renesis Tech Japan</span>
-          </span>
+        <div className="flex flex-col items-center text-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/kizashi-logo.png" alt="Kizashi 兆し" width={120} height={113} className="h-[113px] w-[120px] rounded-[24px] shadow-[0_2px_10px_rgba(30,58,49,0.12)]" />
+          <p className="mt-4 text-[12px] font-semibold tracking-[0.3em] text-faint">KIZASHI · RENESIS TECH JAPAN</p>
         </div>
-        <h1 className="mt-7 text-[22px] font-bold tracking-tight">Sign in</h1>
-        <p className="mt-1 mb-6 text-sm text-muted">Enter your approved email address.</p>
+        <h1 className="mt-7 text-center font-[family-name:var(--font-mincho)] text-[24px] font-bold">Sign in</h1>
+        <p className="mt-1 mb-6 text-center text-sm text-muted">Early signals from the Japanese market, turned into content and leads.</p>
         {error === "not_allowed" && <p className="mb-4 rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn">That account doesn't have access.</p>}
         <LoginForm />
       </div>

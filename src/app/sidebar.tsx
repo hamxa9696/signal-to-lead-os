@@ -53,15 +53,12 @@ export function Sidebar({ signOut }: { signOut: (() => Promise<void>) | null }) 
   if (path.startsWith("/login") || path.startsWith("/auth")) return null;
   return (
     <aside className="flex w-full flex-col gap-3 border-b border-line bg-sidebar px-4 py-3 md:sticky md:gap-6 md:py-5 md:top-0 md:h-screen md:w-[248px] md:flex-none md:border-r md:border-b-0">
-      <Link href="/performance" className="flex items-center gap-2.5 px-2">
-        <span className="flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-ink">
-          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="var(--color-accent)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 12h4l3-7 4 14 3-7h4" />
-          </svg>
-        </span>
-        <span>
-          <span className="block font-bold tracking-tight">Kizashi <span lang="ja" className="ml-0.5 text-[12px] font-medium text-faint">兆し</span></span>
-          <span className="block text-[11px] text-faint">Renesis Tech Japan</span>
+      <Link href="/performance" className="flex items-center gap-3 px-2" aria-label="Kizashi home">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/kizashi-logo.png" alt="" width={40} height={38} className="h-[38px] w-10 shrink-0 rounded-[10px] object-cover shadow-[0_1px_2px_rgba(30,58,49,0.12)]" />
+        <span className="min-w-0">
+          <span className="block text-[13px] font-semibold tracking-[0.28em] text-ink">KIZASHI</span>
+          <span className="block text-[11px] text-faint"><span lang="ja" className="font-[family-name:var(--font-mincho)]">兆し</span> · Renesis Tech Japan</span>
         </span>
       </Link>
       <nav aria-label="Main" className="-mx-4 flex flex-nowrap gap-x-0.5 overflow-x-auto px-4 md:mx-0 md:flex-col md:gap-y-4 md:overflow-visible md:px-0">

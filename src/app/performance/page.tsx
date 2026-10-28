@@ -80,7 +80,7 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
   return (
     <main className="page">
       {(!gaOn || !gscOn) && (
-        <div className="flex flex-wrap items-center gap-2.5 rounded-[10px] border border-[#F5DDAE] bg-[#FEF8EC] px-3.5 py-2.5 text-[13px] text-[#7A4A0A]">
+        <div className="flex flex-wrap items-center gap-2.5 rounded-[10px] border border-[#EBD3A4] bg-[#FBF3E2] px-3.5 py-2.5 text-[13px] text-[#7A4A0A]">
           <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M12 8v5M12 16v.5" /></svg>
           <span>
             {!gaOn && !gscOn ? "GA4 and Search Console aren't connected yet" : !gaOn ? "GA4 isn't connected yet" : "Search Console isn't connected yet"}, so traffic numbers stay empty until the first morning run after connecting.
@@ -137,7 +137,7 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
             <FunnelRow label="Reached a form page" value={fun.offerViews} share={pct(fun.offerViews, fun.sessions)} base={fun.sessions} />
             <FunnelRow label="Submitted a form" value={fun.leads} share={pct(fun.leads, fun.sessions)} base={fun.sessions} strong />
           </div>
-          <p className="mt-auto border-t border-[#F0F1F4] pt-3 text-[12.5px] text-muted">
+          <p className="mt-auto border-t border-[#EDE6D8] pt-3 text-[12.5px] text-muted">
             {fun.sessions === 0
               ? "Fills in once GA4 is connected."
               : fun.offerViews < fun.engaged * 0.2
@@ -166,7 +166,7 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
           </div>
           <div className="overflow-x-auto">
             <div className="min-w-[680px]">
-              <div className="eyebrow grid grid-cols-[minmax(0,1fr)_96px_80px_72px_64px] gap-3 border-y border-line bg-[#FAFAFB] px-[22px] py-2.5 text-[10.5px]">
+              <div className="eyebrow grid grid-cols-[minmax(0,1fr)_96px_80px_72px_64px] gap-3 border-y border-line bg-[#FAF6EE] px-[22px] py-2.5 text-[10.5px]">
                 <span>Page</span><span className="text-right">Sessions</span><span className="text-right">Clicks</span><span className="text-right">Pos.</span><span className="text-right">Leads</span>
               </div>
               {rows.map((r) => {
@@ -174,7 +174,7 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
                 const up = r.sessions > r.sessions_prev && r.sessions_prev > 0;
                 const down = r.sessions < r.sessions_prev;
                 return (
-                  <div key={r.path} className="grid grid-cols-[minmax(0,1fr)_96px_80px_72px_64px] items-center gap-3 border-b border-[#F0F1F4] px-[22px] py-3 last:border-b-0">
+                  <div key={r.path} className="grid grid-cols-[minmax(0,1fr)_96px_80px_72px_64px] items-center gap-3 border-b border-[#EDE6D8] px-[22px] py-3 last:border-b-0">
                     <span className="min-w-0 truncate" lang="ja">
                       {r.kind === "lead_magnet" && <span className="mr-1.5 rounded bg-accent-soft px-1.5 py-px font-sans text-[11px] font-semibold text-accent">PDF</span>}
                       {r.topic_id ? (
@@ -200,7 +200,7 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
               )}
             </div>
           </div>
-          <p className="border-t border-[#F0F1F4] px-[22px] py-3 text-xs text-faint">Positions in amber (8–20) are refresh candidates: a rewrite can reach Google's first page.</p>
+          <p className="border-t border-[#EDE6D8] px-[22px] py-3 text-xs text-faint">Positions in amber (8–20) are refresh candidates: a rewrite can reach Google's first page.</p>
         </section>
 
         <div className="flex min-w-0 flex-[1_1_300px] flex-col gap-5">
@@ -222,9 +222,9 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
           <section aria-label="Content engine" className="flex flex-col gap-3.5 rounded-[14px] bg-ink px-[22px] py-5 text-[#E6E8EE]">
             <h2 className="text-base font-semibold text-white">Content engine this month</h2>
             <div className="grid grid-cols-3 gap-2.5">
-              <div><p className="font-mono text-[22px] text-white">{engine.publishedThisMonth}</p><p className="mt-0.5 text-xs text-[#98A2B3]">published</p></div>
-              <div><p className="font-mono text-[22px] text-white">{engine.avgReview ?? "—"}</p><p className="mt-0.5 text-xs text-[#98A2B3]">avg review score</p></div>
-              <div><p className="font-mono text-[22px] text-white">{engine.refreshDue}</p><p className="mt-0.5 text-xs text-[#98A2B3]">refresh due</p></div>
+              <div><p className="font-mono text-[22px] text-white">{engine.publishedThisMonth}</p><p className="mt-0.5 text-xs text-[#A29A88]">published</p></div>
+              <div><p className="font-mono text-[22px] text-white">{engine.avgReview ?? "—"}</p><p className="mt-0.5 text-xs text-[#A29A88]">avg review score</p></div>
+              <div><p className="font-mono text-[22px] text-white">{engine.refreshDue}</p><p className="mt-0.5 text-xs text-[#A29A88]">refresh due</p></div>
             </div>
             <p className="border-t border-[#1F2937] pt-3 text-[13px] leading-relaxed text-[#C3C8D4]">
               {best && best.p.points !== 5 ? (
@@ -253,7 +253,7 @@ function FunnelRow({ label, value, share, base, strong }: { label: string; value
           {base > 0 && share < 100 ? ` · ${share < 10 ? share.toFixed(1) : Math.round(share)}%` : ""}
         </span>
       </p>
-      <div className="h-2.5 rounded-full bg-[#EEF0F3]">
+      <div className="h-2.5 rounded-full bg-[#EDE6D8]">
         <div
           className={`h-full rounded-full ${strong ? "bg-ink" : "bg-accent"}`}
           style={{ width: `${base > 0 ? Math.max(share, value > 0 ? 2 : 0) : 0}%`, opacity: strong ? 1 : Math.max(0.45, share / 100) }}
@@ -267,8 +267,8 @@ function ServiceBar({ name, share, rel, rank }: { name: string; share: number; r
   return (
     <>
       <span lang="ja" className="truncate">{name}</span>
-      <div className="h-2 rounded bg-[#EEF0F3]">
-        <div className={`h-full rounded ${rank < 3 ? "bg-accent" : "bg-[#98A2B3]"}`} style={{ width: `${rel}%`, opacity: rank < 3 ? 1 - rank * 0.25 : 1 }} />
+      <div className="h-2 rounded bg-[#EDE6D8]">
+        <div className={`h-full rounded ${rank < 3 ? "bg-accent" : "bg-[#A29A88]"}`} style={{ width: `${rel}%`, opacity: rank < 3 ? 1 - rank * 0.25 : 1 }} />
       </div>
       <span className="text-right font-mono">{Math.round(share)}%</span>
     </>

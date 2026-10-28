@@ -59,9 +59,9 @@ export function SessionsChart({ points, unit, label }: { points: Point[]; unit: 
         }}
       >
         {firstSel > 0 && <rect x={x(firstSel) - 6} y={top - 10} width={right - x(firstSel) + 12} height={bottom - top + 10} fill="var(--color-accent)" fillOpacity="0.05" rx="6" />}
-        <g stroke="#F0F1F4">{ticks.slice(1).map((t) => <line key={t} x1={left} x2={right} y1={y(t)} y2={y(t)} />)}</g>
-        <line x1={left} x2={right} y1={bottom} y2={bottom} stroke="#D0D5DD" />
-        <g fill="#98A2B3" fontSize="11">
+        <g stroke="#EDE6D8">{ticks.slice(1).map((t) => <line key={t} x1={left} x2={right} y1={y(t)} y2={y(t)} />)}</g>
+        <line x1={left} x2={right} y1={bottom} y2={bottom} stroke="#D6CDBA" />
+        <g fill="#A29A88" fontSize="11">
           {ticks.map((t) => <text key={t} x={left - 8} y={y(t) + 4} textAnchor="end">{n(t)}</text>)}
           {points.map((p, i) => (i % every === 0 ? <text key={p.key} x={x(i)} y={bottom + 22} textAnchor="middle">{day(p.key, { day: "numeric", month: "short" })}</text> : null))}
         </g>
@@ -71,15 +71,15 @@ export function SessionsChart({ points, unit, label }: { points: Point[]; unit: 
         {hover == null && (
           <>
             <circle cx={x(last)} cy={y(points[last].sessions)} r="4.5" fill="#FFFFFF" stroke="var(--color-accent)" strokeWidth="2.5" />
-            <text x={x(last) - 8} y={y(points[last].sessions) - 10} textAnchor="end" fill="#0B1220" fontSize="12" fontWeight="500">{n(points[last].sessions)}</text>
+            <text x={x(last) - 8} y={y(points[last].sessions) - 10} textAnchor="end" fill="#1E3A31" fontSize="12" fontWeight="500">{n(points[last].sessions)}</text>
           </>
         )}
-        <g fill="#0B1220">
+        <g fill="#1E3A31">
           {points.map((p, i) => (p.published > 0 ? <path key={p.key} d={`M${x(i)} ${bottom - 8} l6 6 l-6 6 l-6 -6 z`} /> : null))}
         </g>
         {h && hover != null && (
           <g pointerEvents="none">
-            <line x1={x(hover)} x2={x(hover)} y1={top - 10} y2={bottom} stroke="#0B1220" strokeOpacity="0.25" strokeDasharray="3 3" />
+            <line x1={x(hover)} x2={x(hover)} y1={top - 10} y2={bottom} stroke="#1E3A31" strokeOpacity="0.25" strokeDasharray="3 3" />
             <circle cx={x(hover)} cy={y(h.sessions)} r="5.5" fill="#FFFFFF" stroke="var(--color-accent)" strokeWidth="3" />
           </g>
         )}
@@ -93,7 +93,7 @@ export function SessionsChart({ points, unit, label }: { points: Point[]; unit: 
           <p className="text-white/70">{when}</p>
           <p className="mt-0.5 font-mono text-lg font-semibold">{n(h.sessions)} <span className="font-sans text-[12px] font-normal text-white/70">sessions</span></p>
           {diff != null && (
-            <p className={diff > 0 ? "text-[#6EE7B7]" : diff < 0 ? "text-[#FCA5A5]" : "text-white/70"}>
+            <p className={diff > 0 ? "text-[#A8D5BC]" : diff < 0 ? "text-[#EBB3A3]" : "text-white/70"}>
               {diff > 0 ? "▲" : diff < 0 ? "▼" : "="} {n(Math.abs(diff))} vs previous {unit}
             </p>
           )}
