@@ -41,9 +41,9 @@ function previewHtml(md: string): string {
 
 function Section({ n, title, children, done }: { n: number; title: string; children: React.ReactNode; done?: boolean }) {
   return (
-    <section className="card p-4">
-      <h2 className="flex items-center gap-2 font-semibold">
-        <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${done ? "bg-good text-white" : "bg-subtle"}`}>
+    <section className="card p-5">
+      <h2 className="flex items-center gap-2.5 font-semibold">
+        <span className={`flex h-6 w-6 items-center justify-center rounded-full font-mono text-xs ${done ? "bg-good text-white" : "bg-accent-soft text-accent-ink"}`}>
           {done ? "✓" : n}
         </span>
         {title}
@@ -80,15 +80,15 @@ export default async function TopicWorkspace({ params }: { params: Promise<{ id:
   const isArticle = topic.kind === "article";
 
   return (
-    <main className="mx-auto max-w-5xl overflow-x-hidden px-4 py-8">
-      <Link href={`/topics?week=${topic.week_of}`} className="text-sm text-faint hover:text-ink">← Week of {topic.week_of}</Link>
-      <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+    <main className="page overflow-x-hidden">
+      <div className="-mb-3"><Link href={`/topics?week=${topic.week_of}`} className="text-sm text-faint hover:text-ink">← Week of {topic.week_of}</Link></div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs text-faint">
+          <p className="eyebrow">
             {topic.kind === "lead_magnet" ? `Lead magnet · ${topic.magnet_format}` : "Article"} · topic {topic.status}
             {item && <> · <span className="text-ink">{ITEM_STATUS[item.status] ?? item.status}</span></>}
           </p>
-          <h1 lang="ja" className="mt-1 text-xl font-semibold">{item?.title ?? topic.title_ja}</h1>
+          <h1 lang="ja" className="mt-1.5 text-[24px] leading-snug font-bold tracking-tight">{item?.title ?? topic.title_ja}</h1>
           <p lang="ja" className="mt-1 text-sm text-faint">{topic.primary_keyword} · {topic.secondary_keywords.join("、")}</p>
           {topic.persona && (
             <p className="mt-1 text-sm text-muted">
@@ -100,7 +100,7 @@ export default async function TopicWorkspace({ params }: { params: Promise<{ id:
           <form action={setTopicStatus}>
             <input type="hidden" name="id" value={topic.id} />
             <input type="hidden" name="status" value="approved" />
-            <button className="rounded-md bg-accent px-3 py-1.5 text-sm text-white hover:bg-accent-ink">Approve to start</button>
+            <button className="btn-primary">Approve to start</button>
           </form>
         )}
       </div>
@@ -108,11 +108,11 @@ export default async function TopicWorkspace({ params }: { params: Promise<{ id:
       <ResearchPanel topicId={id} research={topic.research} />
 
       {!active ? (
-        <p className="mt-6 card px-4 py-6 text-sm text-muted">
+        <p className="card px-5 py-6 text-sm text-muted">
           Approve this topic to get its prompt pack.
         </p>
       ) : (
-        <div className="mt-6 space-y-4">
+        <div className="space-y-4">
           <Section n={1} title="Prompt pack: copy into ChatGPT or Claude" done={versions.length > 0}>
             <p className="text-sm text-muted">
               Start a new chat, paste this, and copy the whole answer back into step 2. It includes the style guide, banned phrases and fact sheet from{" "}
@@ -122,7 +122,7 @@ export default async function TopicWorkspace({ params }: { params: Promise<{ id:
               <CopyButton text={pack!} label="Copy prompt pack" />
               <form action={rebuildPackAction}>
                 <input type="hidden" name="topicId" value={id} />
-                <button className="rounded-md border border-line-strong bg-surface px-3 py-1.5 text-sm hover:bg-subtle">Rebuild (after editing Knowledge)</button>
+                <button className="btn">Rebuild (after editing Knowledge)</button>
               </form>
             </div>
             <details>
@@ -343,7 +343,7 @@ async function RefreshFinish({ markdown, path, ready }: { markdown: string; path
       <div className="flex flex-wrap gap-2">
         {ready && <CopyButton text={markdown} label="Copy rewritten Markdown" />}
         {live && (
-          <a href={adminUrl(live.id)} target="_blank" rel="noreferrer" className="rounded-md border border-line-strong bg-surface px-3 py-1.5 hover:bg-subtle">
+          <a href={adminUrl(live.id)} target="_blank" rel="noreferrer" className="btn">
             Open live post in Payload admin
           </a>
         )}
@@ -413,7 +413,7 @@ function MagnetSteps({ topicId, itemId, ready, file, currentVersionId, pub, payl
 function ResearchPanel({ topicId, research: r }: { topicId: string; research: Research | null }) {
   const byN = new Map((r?.sources ?? []).map((s) => [s.n, s]));
   return (
-    <section aria-label="Research" className="card mt-6 p-4">
+    <section aria-label="Research" className="card p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-semibold">Research &amp; sources</h2>

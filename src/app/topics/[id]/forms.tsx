@@ -7,7 +7,7 @@ function Status({ state }: { state: ActionState }) {
   return <p className={`text-sm ${state.ok ? "text-good" : "text-warn"}`}>{state.message}</p>;
 }
 
-const btn = "rounded-md px-3 py-1.5 text-sm disabled:opacity-50";
+const btn = "inline-flex min-h-9 items-center rounded-lg px-3.5 py-1.5 text-sm font-medium disabled:opacity-50";
 
 export function DraftForm({ topicId }: { topicId: string }) {
   const [state, action, pending] = useActionState(saveDraftAction, null);
@@ -20,7 +20,7 @@ export function DraftForm({ topicId }: { topicId: string }) {
         rows={12}
         lang="ja"
         placeholder={"---\ntitle: …\nslug: …\nmeta_title: …\nmeta_description: …\nexcerpt: …\n---\n\n## …"}
-        className="w-full rounded-md border border-line-strong bg-surface p-3 font-mono text-xs leading-relaxed"
+        className="w-full rounded-lg border border-line-strong bg-surface p-3 font-mono text-xs leading-relaxed focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent-soft"
       />
       <div className="flex flex-wrap items-center gap-3">
         <label className="text-sm text-muted">

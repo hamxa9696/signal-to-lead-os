@@ -1,6 +1,10 @@
 import { sql } from "@/lib/db";
 import { runHealthChecks } from "@/lib/health";
 import { RunButton } from "../run-button";
+import { PageHeader } from "../page-header";
+
+// Connections the traffic goal does not need: shown as optional, not as warnings.
+const OPTIONAL = new Set(["Brevo", "Make.com webhook", "PDF storage (Supabase)"]);
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // Gemini and PDF actions can take minutes
@@ -17,41 +21,50 @@ export default async function Home() {
     sql<RunRow[]>`select job, status, started_at, stats, error from job_runs order by started_at desc limit 12`.catch(() => []),
     sql<{ status: string; n: number }[]>`select status, count(*)::int as n from signals group by status`.catch(() => []),
   ]);
-  const ready = checks.filter((c) => c.ok).length;
+  const required = checks.filter((c) => !OPTIONAL.has(c.name));
+  const ready = required.filter((c) => c.ok).length;
   const signalCount = (s: string) => counts.find((c) => c.status === s)?.n ?? 0;
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
-      <section>
-        <h1 className="text-xl font-semibold">Connections</h1>
-        <p className="mt-1 text-sm text-muted">
-          {ready}/{checks.length} ready. Setup steps are in <code className="text-ink">docs/SETUP.md</code>.
-        </p>
-        <p className="mt-1 text-sm text-muted">
-          Brevo and Make.com are optional: the website&apos;s own forms already collect emails. Their settings stay on{" "}
+    <main className="page">
+      <PageHeader
+        eyebrow="System"
+        title="Status"
+        description={<>{ready} of {required.length} required connections ready. Setup steps are in <code className="text-ink">docs/SETUP.md</code>.</>}
+      />
+      <section aria-labelledby="conn" className="flex flex-col gap-3">
+        <h2 id="conn" className="text-base font-semibold">Connections</h2>
+        <ul className="card divide-y divide-line">
+          {checks.map((c) => {
+            const optional = OPTIONAL.has(c.name);
+            return (
+              <li key={c.name} className="flex items-start gap-3 px-4 py-3">
+                <span
+                  aria-label={c.ok ? "ok" : optional ? "optional, off" : "not ready"}
+                  className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${c.ok ? "bg-good-dot" : optional ? "bg-line-strong" : "bg-warn-dot"}`}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <span className="font-medium">
+                      {c.name}
+                      {optional && <span className="ml-2 rounded-full bg-subtle px-2 py-0.5 text-[11px] font-medium text-faint">Optional</span>}
+                    </span>
+                    <span className="text-xs text-faint">{c.setup}</span>
+                  </div>
+                  <p className="break-words text-sm text-muted">{c.detail}</p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="text-[13px] text-faint">
+          Optional items are only needed for emailed lead-magnet downloads; the website&apos;s own forms already collect emails. Settings:{" "}
           <a href="/delivery" className="font-medium text-accent hover:underline">Delivery</a>.
         </p>
-        <ul className="mt-4 divide-y divide-white/10 card">
-          {checks.map((c) => (
-            <li key={c.name} className="flex items-start gap-3 px-4 py-3">
-              <span
-                aria-label={c.ok ? "ok" : "not ready"}
-                className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${c.ok ? "bg-good-dot" : "bg-warn-dot"}`}
-              />
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <span className="font-medium">{c.name}</span>
-                  <span className="text-xs text-faint">{c.setup}</span>
-                </div>
-                <p className="break-words text-sm text-muted">{c.detail}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
       </section>
 
-      <section className="mt-10">
-        <h2 className="text-lg font-semibold">Run jobs</h2>
+      <section>
+        <h2 className="text-base font-semibold">Run jobs</h2>
         <p className="mt-1 text-sm text-muted">
           These also run on a schedule (GitHub Actions). Signals: {signalCount("new")} waiting for analysis,{" "}
           {signalCount("analyzed")} relevant, {signalCount("ignored")} ignored.
@@ -61,12 +74,14 @@ export default async function Home() {
           <RunButton job="collect-gsc" label="Pull Search Console" />
           <RunButton job="collect-ga4" label="Pull GA4" />
           <RunButton job="analyze" label="Analyze signals (Gemini)" />
+          <RunButton job="deepen" label="Deep-read strong signals" />
+          <RunButton job="research" label="Research this week's topics" />
           <RunButton job="shortlist" label="Regenerate weekly shortlist" force />
         </div>
       </section>
 
-      <section className="mt-10">
-        <h2 className="text-lg font-semibold">Recent runs</h2>
+      <section>
+        <h2 className="text-base font-semibold">Recent runs</h2>
         <div className="mt-3 overflow-x-auto card">
           <table className="w-full min-w-[560px] text-sm">
             <thead className="text-left text-faint">
@@ -77,7 +92,7 @@ export default async function Home() {
                 <th className="px-3 py-2 font-normal">Detail</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/10">
+            <tbody className="divide-y divide-line">
               {runs.map((r, i) => (
                 <tr key={i}>
                   <td className="whitespace-nowrap px-3 py-2 text-muted">{fmt(r.started_at)}</td>

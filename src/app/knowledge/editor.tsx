@@ -12,10 +12,10 @@ export function KnowledgeEditor({ kind, content, rows }: { kind: string; content
         defaultValue={content}
         rows={rows}
         lang="ja"
-        className="w-full rounded-md border border-line-strong bg-surface p-3 font-mono text-xs leading-relaxed"
+        className="w-full rounded-lg border border-line-strong bg-surface p-3 font-mono text-xs leading-relaxed focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent-soft"
       />
       <div className="flex items-center gap-3">
-        <button disabled={pending} className="rounded-md bg-accent px-3 py-1.5 text-sm text-white hover:bg-accent-ink disabled:opacity-50">
+        <button disabled={pending} className="btn-primary">
           {pending ? "Saving…" : "Save"}
         </button>
         {msg && <span className="text-sm text-faint">{msg}</span>}

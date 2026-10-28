@@ -1,4 +1,5 @@
 import { sql } from "@/lib/db";
+import { PageHeader } from "../page-header";
 import { env, has } from "@/lib/env";
 import { getBrevoSetup, LIST_NAME } from "@/lib/brevo";
 import { downloadBaseUrl, storageReady } from "@/lib/magnet/storage";
@@ -45,16 +46,16 @@ export default async function DeliveryPage() {
   const make = has(env.makeWebhookUrl);
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="text-xl font-semibold">Delivery</h1>
-      <p className="mt-1 text-sm text-muted">
-        How a download works: the website form → Make.com → Brevo adds the contact and emails the PDF link → the daily sync brings the download back here.
-        Guides: <code>docs/MAKE.md</code> and <code>integrations/website/README.md</code>.
-      </p>
+    <main className="page">
+      <PageHeader
+        eyebrow="Optional"
+        title="Delivery"
+        description={<>Only needed for emailed lead-magnet downloads (website form → Make.com → Brevo emails the PDF). The site&apos;s own forms already collect emails. Guides: <code>docs/MAKE.md</code>, <code>integrations/website/README.md</code>.</>}
+      />
 
-      <section className="mt-6">
+      <section>
         <h2 className="font-semibold">Values for Make.com and the website</h2>
-        <ul className="mt-3 divide-y divide-white/10 card text-sm">
+        <ul className="mt-3 divide-y divide-line card text-sm">
           <Row label="Brevo LIST_ID" value={setup?.listId} ok={Boolean(setup)} hint={`click “Set up Brevo” (creates “${LIST_NAME}”)`} />
           <Row label="Brevo TEMPLATE_ID" value={setup?.templateId} ok={Boolean(setup)} hint="created by “Set up Brevo”" />
           <Row label="PDF base URL" value={base} ok={storage.ok} hint="set SUPABASE_URL (SETUP.md §9)" />
@@ -79,7 +80,7 @@ export default async function DeliveryPage() {
         </div>
       </section>
 
-      <section className="mt-8">
+      <section>
         <h2 className="font-semibold">Downloads ({total})</h2>
         <p className="mt-1 text-sm text-faint">Imported daily from Brevo’s delivery emails (job: sync-brevo).</p>
         <div className="mt-3 overflow-x-auto card">
@@ -93,7 +94,7 @@ export default async function DeliveryPage() {
                 <th className="px-3 py-2 font-normal">Source</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/10">
+            <tbody className="divide-y divide-line">
               {subs.map((s, i) => (
                 <tr key={i}>
                   <td className="whitespace-nowrap px-3 py-2 text-muted">{fmt(s.received_at)}</td>

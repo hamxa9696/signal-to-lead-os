@@ -113,7 +113,7 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
   ];
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-8 md:px-9">
+    <main className="page">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="eyebrow">
@@ -122,10 +122,10 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
           <h1 className="mt-1.5 text-[28px] font-bold tracking-tight">Weekly shortlist</h1>
         </div>
         <div className="flex gap-2">
-          <Link href={`/topics?week=${addDays(week, -7)}`} className="inline-flex min-h-11 items-center rounded-lg border border-line-strong bg-surface px-3.5 text-sm font-medium shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:bg-subtle">
+          <Link href={`/topics?week=${addDays(week, -7)}`} className="btn">
             ← Previous
           </Link>
-          <Link href={`/topics?week=${addDays(week, 7)}`} className="inline-flex min-h-11 items-center rounded-lg border border-line-strong bg-surface px-3.5 text-sm font-medium shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:bg-subtle">
+          <Link href={`/topics?week=${addDays(week, 7)}`} className="btn">
             Next →
           </Link>
         </div>
@@ -143,7 +143,7 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
         ))}
       </section>
 
-      <section aria-label="How topics are scored" className="card mt-5 px-[22px] py-4">
+      <section aria-label="How topics are scored" className="card px-[22px] py-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-sm font-semibold">How the score (0–100) is built</h2>
           <p className="text-xs text-faint">Hover a bar to see its points</p>
@@ -175,11 +175,11 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
       </section>
 
       {!topics.length ? (
-        <p className="card mt-5 px-6 py-8 text-sm text-muted">
+        <p className="card px-6 py-8 text-sm text-muted">
           No topics for this week yet. The shortlist is generated every Monday at 06:30 JST, or use “Regenerate weekly shortlist” on the Status page.
         </p>
       ) : (
-        <section aria-label="Topics" className="card mt-5 overflow-x-auto">
+        <section aria-label="Topics" className="card overflow-x-auto">
           <div className="min-w-[900px]">
             <div className="eyebrow grid grid-cols-[64px_minmax(0,1fr)_184px_150px_170px] gap-4 rounded-t-[14px] border-b border-line bg-[#FAFAFB] px-[22px] py-3 text-[10.5px]">
               <span>Score</span>

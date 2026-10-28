@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { sql } from "@/lib/db";
+import { PageHeader } from "../page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -36,33 +37,29 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
   const n = (k: string) => counts.find((c) => c.status === k)?.n ?? 0;
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="text-xl font-semibold">Signals</h1>
-      <p className="mt-1 text-sm text-muted">
-        News items collected from Japanese <Link href="/sources" className="underline decoration-line-strong">sources</Link> and scored by Gemini.
-        The strongest are read in full: their facts and reader questions are shown first. Showing up to 200.
-      </p>
+    <main className="page">
+      <PageHeader
+        eyebrow="Inputs"
+        title="Signals"
+        description={<>News from Japanese <Link href="/sources" className="font-medium text-accent hover:underline">sources</Link>, scored by Gemini for your personas. The strongest are read in full; their facts and reader questions are shown first.</>}
+      />
 
-      <div className="mt-4 flex flex-wrap gap-2 text-sm">
+      <nav aria-label="Signal status" className="seg self-start">
         {TABS.map((t) => (
-          <Link
-            key={t.key}
-            href={`/signals?status=${t.key}`}
-            className={`rounded-md border px-3 py-1.5 ${t.key === status ? "border-accent bg-subtle" : "border-line-strong text-muted hover:bg-subtle"}`}
-          >
-            {t.label} ({n(t.key)})
+          <Link key={t.key} href={`/signals?status=${t.key}`} aria-current={t.key === status ? "page" : undefined} className={t.key === status ? "seg-on" : "seg-item"}>
+            {t.label} <span className="font-mono text-[12px] text-faint">{n(t.key)}</span>
           </Link>
         ))}
-      </div>
+      </nav>
 
-      <ul className="mt-4 divide-y divide-white/10 card">
+      <ul className="card divide-y divide-line">
         {rows.map((r, i) => (
-          <li key={i} className="px-4 py-3">
+          <li key={i} className="px-5 py-4">
             <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs text-faint">
               <span>{r.source} · {fmt(r.published_at)}</span>
               {r.relevance && <span className="tabular-nums">relevance {Number(r.relevance).toFixed(2)}</span>}
             </div>
-            <p lang="ja" className="mt-0.5">
+            <p lang="ja" className="mt-1 font-medium leading-snug">
               {r.url ? <a href={r.url} target="_blank" rel="noreferrer" className="hover:underline">{r.title}</a> : r.title}
             </p>
             {(r.buyer_problem || r.angle || r.service) && (

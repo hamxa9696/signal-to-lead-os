@@ -68,7 +68,7 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
   const serviceTotal = byService.reduce((a, s) => a + s.leads, 0);
 
   return (
-    <main className="mx-auto flex max-w-6xl flex-col gap-5 px-6 py-8 md:px-9">
+    <main className="page">
       {(!gaOn || !gscOn) && (
         <div className="flex flex-wrap items-center gap-2.5 rounded-[10px] border border-[#F5DDAE] bg-[#FEF8EC] px-3.5 py-2.5 text-[13px] text-[#7A4A0A]">
           <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M12 8v5M12 16v.5" /></svg>

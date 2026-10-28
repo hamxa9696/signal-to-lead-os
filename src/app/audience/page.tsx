@@ -17,7 +17,7 @@ export default async function AudiencePage() {
   const activeIndustries = t.industries.filter((i) => i.active);
   const activeServices = t.services.filter((s) => s.active);
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-8 md:px-8">
+    <main className="page">
       <div>
         <p className="eyebrow">Targeting</p>
         <h1 className="mt-1.5 text-[28px] font-bold tracking-tight">Audience</h1>

@@ -1,5 +1,6 @@
 import { sql } from "@/lib/db";
 import { KnowledgeEditor } from "./editor";
+import { PageHeader } from "../page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -13,16 +14,17 @@ const DOCS = [
 export default async function KnowledgePage() {
   const rows = await sql<{ kind: string; content: string; updated_at: Date }[]>`select kind, content, updated_at from knowledge_docs`;
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="text-xl font-semibold">Knowledge</h1>
-      <p className="mt-1 text-sm text-muted">
-        These documents set the quality bar, since there is no human reviewer. Changes apply to new prompt packs and reviews.
-      </p>
-      <div className="mt-6 space-y-6">
+    <main className="page">
+      <PageHeader
+        eyebrow="Quality bar"
+        title="Knowledge"
+        description="These documents set the quality bar, since there is no human reviewer. Changes apply to new prompt packs and reviews."
+      />
+      <div className="space-y-5">
         {DOCS.map((d) => {
           const row = rows.find((r) => r.kind === d.kind);
           return (
-            <section key={d.kind} className="card p-4">
+            <section key={d.kind} className="card p-5">
               <h2 className="font-semibold">{d.title}</h2>
               <p className="mb-3 text-sm text-faint">{d.help}</p>
               <KnowledgeEditor kind={d.kind} content={row?.content ?? ""} rows={d.rows} />

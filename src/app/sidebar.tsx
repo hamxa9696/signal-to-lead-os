@@ -25,22 +25,32 @@ const ICONS: Record<string, React.ReactNode> = {
   ),
 };
 
-const LINKS = [
-  { href: "/performance", label: "Performance", icon: "performance" },
-  { href: "/topics", label: "Topics", icon: "topics" },
-  { href: "/signals", label: "Signals", icon: "signals" },
-  { href: "/sources", label: "Sources", icon: "sources" },
-  { href: "/review", label: "Monthly review", icon: "review" },
-  { href: "/audience", label: "Audience", icon: "audience" },
-  { href: "/knowledge", label: "Knowledge", icon: "knowledge" },
-  { href: "/status", label: "Status", icon: "status" },
+const GROUPS = [
+  {
+    label: "Plan",
+    links: [
+      { href: "/performance", label: "Performance", icon: "performance" },
+      { href: "/topics", label: "Topics", icon: "topics" },
+      { href: "/review", label: "Monthly review", icon: "review" },
+    ],
+  },
+  {
+    label: "Inputs",
+    links: [
+      { href: "/signals", label: "Signals", icon: "signals" },
+      { href: "/sources", label: "Sources", icon: "sources" },
+      { href: "/audience", label: "Audience", icon: "audience" },
+      { href: "/knowledge", label: "Knowledge", icon: "knowledge" },
+    ],
+  },
+  { label: "System", links: [{ href: "/status", label: "Status", icon: "status" }] },
 ];
 
 export function Sidebar({ signOut }: { signOut: (() => Promise<void>) | null }) {
   const path = usePathname();
   if (path.startsWith("/login") || path.startsWith("/auth")) return null;
   return (
-    <aside className="flex w-full flex-col gap-6 border-b border-line bg-sidebar px-4 py-5 md:sticky md:top-0 md:h-screen md:w-[248px] md:flex-none md:border-r md:border-b-0">
+    <aside className="flex w-full flex-col gap-3 border-b border-line bg-sidebar px-4 py-3 md:sticky md:gap-6 md:py-5 md:top-0 md:h-screen md:w-[248px] md:flex-none md:border-r md:border-b-0">
       <Link href="/performance" className="flex items-center gap-2.5 px-2">
         <span className="flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-ink">
           <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="var(--color-accent)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -52,36 +62,42 @@ export function Sidebar({ signOut }: { signOut: (() => Promise<void>) | null }) 
           <span className="block text-[11px] text-faint">Renesis Tech Japan</span>
         </span>
       </Link>
-      <div className="px-1">
-        <p className="eyebrow mb-1.5 ml-2 hidden md:block">Content language</p>
-        <LangSwitch />
-      </div>
-      <nav aria-label="Main" className="flex flex-wrap gap-0.5 md:flex-col">
-        <p className="eyebrow mb-1.5 ml-3 hidden md:block">Workspace</p>
-        {LINKS.map((l) => {
-          const active = path === l.href || path.startsWith(`${l.href}/`);
-          return (
-            <Link
-              key={l.href}
-              href={l.href}
-              aria-current={active ? "page" : undefined}
-              className={`flex min-h-[38px] items-center gap-2.5 rounded-lg px-3 py-2 text-sm ${
-                active ? "bg-surface font-semibold text-ink shadow-[0_1px_2px_rgba(16,24,40,0.06),0_0_0_1px_var(--color-line)]" : "text-muted hover:bg-subtle hover:text-ink"
-              }`}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke={active ? "var(--color-accent)" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                {ICONS[l.icon]}
-              </svg>
-              {l.label}
-            </Link>
-          );
-        })}
+      <nav aria-label="Main" className="-mx-4 flex flex-nowrap gap-x-0.5 overflow-x-auto px-4 md:mx-0 md:flex-col md:gap-y-4 md:overflow-visible md:px-0">
+        {GROUPS.map((g) => (
+          <div key={g.label} className="flex shrink-0 flex-nowrap gap-0.5 md:flex-col">
+            <p className="eyebrow mb-1 ml-3 hidden md:block">{g.label}</p>
+            {g.links.map((l) => {
+              const active = path === l.href || path.startsWith(`${l.href}/`);
+              return (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  aria-current={active ? "page" : undefined}
+                  className={`flex min-h-[36px] shrink-0 items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm ${
+                    active ? "bg-surface font-semibold text-ink shadow-[0_1px_2px_rgba(16,24,40,0.06),0_0_0_1px_var(--color-line)]" : "text-muted hover:bg-subtle hover:text-ink"
+                  }`}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke={active ? "var(--color-accent)" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    {ICONS[l.icon]}
+                  </svg>
+                  {l.label}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
-      {signOut && (
-        <form action={signOut} className="md:mt-auto">
-          <button className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-left text-sm text-muted hover:bg-subtle hover:text-ink">Sign out</button>
-        </form>
-      )}
+      <div className="flex items-center gap-3 md:mt-auto md:flex-col md:items-stretch">
+        <div className="flex-1">
+          <p className="eyebrow mb-1.5 ml-1 hidden md:block">Content language</p>
+          <LangSwitch />
+        </div>
+        {signOut && (
+          <form action={signOut}>
+            <button className="w-full whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm text-muted hover:bg-subtle hover:text-ink">Sign out</button>
+          </form>
+        )}
+      </div>
     </aside>
   );
 }

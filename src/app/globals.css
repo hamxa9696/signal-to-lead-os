@@ -64,3 +64,26 @@ body {
 .prose-preview ol { list-style: decimal; padding-left: 1.4em; margin: 0.5em 0; }
 .prose-preview a { text-decoration: underline; color: var(--color-accent-ink); }
 .prose-preview strong { color: var(--color-ink); }
+
+/* Shared page chrome: every page uses the same container, title and controls. */
+@utility page {
+  @apply mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 md:px-9;
+}
+@utility page-title {
+  @apply mt-1.5 text-[28px] leading-tight font-bold tracking-tight;
+}
+@utility btn {
+  @apply inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-line-strong bg-surface px-3.5 py-1.5 text-sm font-medium text-ink shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:bg-subtle disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-accent px-3.5 py-1.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(16,24,40,0.08)] hover:bg-accent-ink disabled:opacity-50;
+}
+@utility seg {
+  @apply inline-flex flex-wrap gap-0.5 rounded-lg bg-subtle p-0.5 text-[13px];
+}
+@utility seg-item {
+  @apply rounded-md px-3 py-1.5 text-muted hover:text-ink;
+}
+@utility seg-on {
+  @apply rounded-md bg-surface px-3 py-1.5 font-semibold text-ink shadow-[0_1px_2px_rgba(16,24,40,0.08)];
+}
