@@ -14,7 +14,7 @@ on:
         required: true
         default: daily
         type: choice
-        options: [daily, weekly, monthly, collect-feeds, collect-gsc, collect-ga4, analyze, sort, deepen, research, shortlist, sync-publications, sync-brevo]
+        options: [daily, weekly, monthly, collect-feeds, collect-gsc, collect-ga4, analyze, sort, deepen, cluster, research, shortlist, sync-publications, sync-brevo]
       force:
         description: "Regenerate this week's shortlist even if it exists"
         type: boolean

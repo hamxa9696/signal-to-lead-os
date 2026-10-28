@@ -6,6 +6,7 @@ import { env, has } from "@/lib/env";
 import { generateJson } from "@/lib/gemini";
 import { loadTargeting } from "@/lib/targeting";
 import { loadTaxonomy, resolveSlug, taxonomyBrief } from "@/lib/taxonomy";
+import { TYPE_KEYS, TYPE_PROMPT } from "@/lib/signal-types";
 import type { Job } from "./types";
 
 const BATCH = 60;
@@ -13,7 +14,7 @@ const MAX_PER_RUN = 600;
 const WINDOW_DAYS = 45;
 
 const Out = z.preprocess((v) => (Array.isArray(v) ? { items: v } : v), z.object({
-  items: z.array(z.object({ i: z.number().int(), slug: z.string().nullable().catch(null), why: z.string().catch("") })),
+  items: z.array(z.object({ i: z.number().int(), slug: z.string().nullable().catch(null), why: z.string().catch(""), signal_type: z.enum(TYPE_KEYS).nullable().catch(null) })),
 }));
 
 type Row = { id: string; title: string; buyer_problem: string | null; angle: string | null; service_category: string | null };
@@ -48,19 +49,21 @@ export const sortSignals: Job = {
             "null if it fits nothing. Judge by the business use-case and industry, not by passing mentions.",
             "why: ENGLISH ONLY (never Japanese), max 140 characters — what in the item puts it in that sub-category (use case, industry,",
             "company type or keyword), or why nothing fits.",
+            TYPE_PROMPT,
             "",
             brief,
             "",
             "ITEMS:",
             ...batch.map((r, i) => `[${i}] ${r.title}${r.buyer_problem ? ` | 課題: ${r.buyer_problem}` : ""}${r.angle ? ` | 切り口: ${r.angle}` : ""}`),
             "",
-            'Return ONLY JSON: {"items":[{"i":0,"slug":null,"why":""}]} with one entry per item.',
+            'Return ONLY JSON: {"items":[{"i":0,"slug":null,"why":"","signal_type":null}]} with one entry per item.',
           ].join("\n"),
           Out,
           { temperature: 0.1, prefer: "gemini-3.5-flash-lite" },
         );
         const bySlug = new Map(items.map((x) => [x.i, x.slug]));
         const byWhy = new Map(items.map((x) => [x.i, x.why]));
+        const byType = new Map(items.map((x) => [x.i, x.signal_type]));
         for (const [i, r] of batch.entries()) {
           if (!bySlug.has(i)) continue; // retried next run
           const hit = resolveSlug(taxonomy, bySlug.get(i));
@@ -68,6 +71,7 @@ export const sortSignals: Job = {
           hit.subcategory_id || category ? sorted++ : unsorted++;
           await sql`
             update signals set category_id = ${category}, subcategory_id = ${hit.subcategory_id}, sorted_at = now(),
+              signal_type = coalesce(${byType.get(i) ?? null}, signal_type),
               analysis = coalesce(analysis, '{}'::jsonb) || ${sql.json({ sort_why: byWhy.get(i) ?? "", sort_by: hit.subcategory_id ? "subcategory" : category ? (hit.category_id ? "category" : "service") : "none" })}
             where id = ${r.id}`;
         }

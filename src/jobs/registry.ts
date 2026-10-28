@@ -6,6 +6,7 @@ import { analyzeSignals } from "./analyze-signals";
 import { deepenSignals } from "./deepen-signals";
 import { researchTopics } from "./research-topics";
 import { sortSignals } from "./sort-signals";
+import { clusterStories } from "./cluster-stories";
 import { makeWeeklyShortlist } from "./weekly-shortlist";
 import { syncPayloadPublications } from "@/lib/content/publish";
 import { syncBrevo } from "./sync-brevo";
@@ -33,11 +34,12 @@ export function jobGroups(opts: { force?: boolean } = {}): Record<string, Job[]>
     deepen: [deepenSignals],
     research: [researchTopics],
     sort: [sortSignals],
+    cluster: [clusterStories],
     shortlist: [shortlist],
     "sync-publications": [syncPublications],
     "sync-brevo": [syncBrevo],
     "collect-ga4": [collectGa4],
-    daily: [collectFeeds, collectGsc, collectGa4, analyzeSignals, sortSignals, deepenSignals, syncPublications, syncBrevo], // every morning
+    daily: [collectFeeds, collectGsc, collectGa4, analyzeSignals, sortSignals, deepenSignals, clusterStories, syncPublications, syncBrevo], // every morning
     weekly: [shortlist, researchTopics], // Monday, after daily
     "monthly-review": [monthlyReview],
     monthly: [monthlyReview], // 1st of the month

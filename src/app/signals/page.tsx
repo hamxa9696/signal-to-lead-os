@@ -3,6 +3,9 @@ import { sql } from "@/lib/db";
 import { loadTaxonomy } from "@/lib/taxonomy";
 import { loadTargeting } from "@/lib/targeting";
 import { PageHeader } from "../page-header";
+import { fmt, WhyPanel, type Row } from "./why-panel";
+import { StoriesList } from "./stories";
+import { SIGNAL_TYPES } from "@/lib/signal-types";
 import { TopicTabs } from "../topics/tabs";
 
 export const dynamic = "force-dynamic";
@@ -13,20 +16,10 @@ const TABS = [
   { key: "ignored", label: "Ignored" },
 ] as const;
 
-type Row = {
-  title: string; url: string | null; source: string; published_at: Date | null;
-  relevance: string | null; service: string | null; buyer_problem: string | null; angle: string | null; sub: string | null;
-  source_kind: string | null; source_url: string | null; summary: string | null; body: string | null; status: string;
-  why: string | null; sort_why: string | null; sort_by: string | null; subcategory_id: string | null; category_id: string | null;
-  analyzed_at: Date | null; persona_from_deep: string | null;
-  deep: { facts?: string[]; implication?: string; persona?: string | null; industries?: string[]; questions?: string[]; full_text?: boolean } | null;
-};
 
-const fmt = (d: Date | null) =>
-  d ? new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Tokyo", month: "short", day: "numeric" }).format(d) : "—";
 const UUID = /^[0-9a-f-]{36}$/;
 
-export default async function SignalsPage({ searchParams }: { searchParams: Promise<{ status?: string; cat?: string; sub?: string; q?: string; source?: string }> }) {
+export default async function SignalsPage({ searchParams }: { searchParams: Promise<{ status?: string; cat?: string; sub?: string; q?: string; source?: string; type?: string; view?: string }> }) {
   const q = await searchParams;
   const status = TABS.some((t) => t.key === q.status) ? q.status! : "analyzed";
   const unsorted = q.cat === "none";
@@ -42,6 +35,14 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
       )
     : sql``;
   const srcFilter = sourceName ? sql`and src.name = ${sourceName}` : sql``;
+  const typeKey = SIGNAL_TYPES.some((t) => t.key === q.type) ? q.type! : null;
+  const typeFilter = typeKey ? sql`and s.signal_type = ${typeKey}` : sql``;
+  // Relevant signals are shown grouped into stories (same news, any outlet) unless "Articles" view is chosen.
+  const storyView = status === "analyzed" && q.view !== "articles";
+  const storyWhere = sql`
+    ${subId ? sql`and st.subcategory_id = ${subId}` : catId ? sql`and st.category_id = ${catId}` : unsorted ? sql`and st.category_id is null` : sql``}
+    ${typeKey ? sql`and st.signal_type = ${typeKey}` : sql``}
+    ${kw || sourceName ? sql`and exists (select 1 from signals s join sources src on src.id = s.source_id where s.story_id = st.id ${kwFilter} ${srcFilter})` : sql``}`;
 
   const filter = subId
     ? sql`and s.subcategory_id = ${subId}`
@@ -62,7 +63,7 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
       from signals s join sources src on src.id = s.source_id
       left join services sv on sv.id = s.service_id
       left join subcategories sc on sc.id = s.subcategory_id
-      where s.status = ${status} ${filter} ${kwFilter} ${srcFilter}
+      where s.status = ${status} ${filter} ${kwFilter} ${srcFilter} ${typeFilter}
       order by (s.deep is not null) desc, s.relevance desc nulls last, coalesce(s.published_at, s.fetched_at) desc
       limit 200`,
     sql<{ status: string; n: number }[]>`select status, count(*)::int as n from signals group by status`,
@@ -76,8 +77,12 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
   const inCat = (id: string) => tree.filter((t) => t.category_id === id).reduce((a, t) => a + t.n, 0);
   const inSub = (id: string) => tree.filter((t) => t.subcategory_id === id).reduce((a, t) => a + t.n, 0);
   const none = tree.filter((t) => !t.category_id).reduce((a, t) => a + t.n, 0);
-  const href = (p: { cat?: string; sub?: string }) =>
-    `/signals?${new URLSearchParams({ ...(status !== "analyzed" ? { status } : {}), ...(p.cat ? { cat: p.cat } : {}), ...(p.sub ? { sub: p.sub } : {}) })}`;
+  const href = (p: { cat?: string; sub?: string; type?: string | null; view?: string }) =>
+    `/signals?${new URLSearchParams({
+      ...(status !== "analyzed" ? { status } : {}), ...(p.cat ? { cat: p.cat } : {}), ...(p.sub ? { sub: p.sub } : {}),
+      ...((p.type === undefined ? typeKey : p.type) ? { type: (p.type === undefined ? typeKey : p.type)! } : {}),
+      ...((p.view ?? q.view) === "articles" ? { view: "articles" } : {}),
+    })}`;
 
   const selSub = tax.subcategories.find((x) => x.id === subId);
   const selCat = tax.categories.find((c) => c.id === (selSub?.category_id ?? catId));
@@ -136,8 +141,14 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-base font-semibold">
               {selCat && selSub && <span className="text-faint">{selCat.name_en} / </span>}
-              {heading} <span className="font-mono text-[13px] font-normal text-faint">{rows.length}{rows.length === 200 ? "+" : ""}</span>
+              {heading} {!storyView && <span className="font-mono text-[13px] font-normal text-faint">{rows.length}{rows.length === 200 ? "+" : ""}</span>}
             </h2>
+            {status === "analyzed" && (
+              <nav aria-label="View" className="seg">
+                <Link prefetch={false} href={href({ cat: q.cat, sub: q.sub, view: "stories" })} className={storyView ? "seg-on" : "seg-item"} title="Same news from several outlets grouped, ranked by strength">Stories</Link>
+                <Link prefetch={false} href={href({ cat: q.cat, sub: q.sub, view: "articles" })} className={!storyView ? "seg-on" : "seg-item"}>Articles</Link>
+              </nav>
+            )}
             {selPersonas.length > 0 && <p lang="ja" className="text-[12.5px] text-muted">Readers: {selPersonas.join("、")}</p>}
           </div>
           {(kw || sourceName) && (
@@ -149,8 +160,24 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
             </p>
           )}
           {selSub?.description && <p className="-mt-1 text-[13px] text-faint">{selSub.description}</p>}
+          <nav aria-label="Signal type" className="flex flex-wrap gap-1.5 text-[12px]">
+            <Link prefetch={false} href={href({ cat: q.cat, sub: q.sub, type: null })} className={`rounded-full border px-2.5 py-1 ${!typeKey ? "border-ink bg-ink text-white" : "border-line-strong text-muted hover:bg-subtle"}`}>All types</Link>
+            {SIGNAL_TYPES.map((t) => (
+              <Link key={t.key} prefetch={false} href={href({ cat: q.cat, sub: q.sub, type: t.key })} title={`Article angle: ${t.angle}`}
+                className={`rounded-full border px-2.5 py-1 ${typeKey === t.key ? "font-semibold" : "border-line-strong text-muted hover:bg-subtle"}`}
+                style={typeKey === t.key ? { borderColor: t.color, color: t.color, background: `${t.color}14` } : undefined}>
+                {t.label}
+              </Link>
+            ))}
+          </nav>
+          {storyView && (
+            <p className="-mt-1 text-[12.5px] text-faint">
+              Same news from several outlets is grouped into one story and ranked by strength (hover the number). 👍/👎 teaches Gemini what you find useful.
+            </p>
+          )}
           <ul className="card divide-y divide-line">
-        {rows.map((r, i) => (
+        {storyView && <StoriesList where={storyWhere} personas={targeting.personas} />}
+        {!storyView && rows.map((r, i) => (
           <li key={i} className="px-5 py-4">
             <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs text-faint">
               <span>{r.source} · {fmt(r.published_at)}{r.sub && !subId && <> · <span className="font-medium text-muted">{r.sub}</span></>}</span>
@@ -180,7 +207,7 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
             <WhyPanel r={r} tax={tax} personas={targeting.personas} />
           </li>
         ))}
-        {!rows.length && <li className="px-5 py-6 text-sm text-faint">Nothing here yet.</li>}
+        {!storyView && !rows.length && <li className="px-5 py-6 text-sm text-faint">Nothing here yet.</li>}
           </ul>
         </section>
       </div>
@@ -188,108 +215,3 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
   );
 }
 
-const SOURCE_KIND: Record<string, string> = {
-  industry_news: "Japanese news site (RSS)",
-  developer_news: "Japanese developer news (RSS)",
-  keyword_search: "Google News search",
-  custom: "Feed you added",
-};
-
-function scoreLabel(r: number): { label: string; cls: string } {
-  if (r >= 0.8) return { label: "Strong match", cls: "bg-good-soft text-good" };
-  if (r >= 0.6) return { label: "Good match", cls: "bg-accent-soft text-accent-ink" };
-  if (r >= 0.35) return { label: "Possible match", cls: "bg-subtle text-muted" };
-  return { label: "Not relevant", cls: "bg-subtle text-faint" };
-}
-
-/** Everything the signal's place on this page is based on, in plain words. */
-function WhyPanel({ r, tax, personas }: {
-  r: Row;
-  tax: Awaited<ReturnType<typeof loadTaxonomy>>;
-  personas: { id: string; name: string }[];
-}) {
-  const sub = tax.subcategories.find((x) => x.id === r.subcategory_id);
-  const cat = tax.categories.find((c) => c.id === (sub?.category_id ?? r.category_id));
-  const text = `${r.title}\n${r.summary ?? ""}\n${r.body ?? ""}`.toLowerCase();
-  const matched = (sub?.keywords ?? []).filter((k) => k.split(/\s+/).every((w) => text.includes(w.toLowerCase())));
-  const readers = [...new Set([r.persona_from_deep, ...(sub?.persona_ids ?? []).map((id) => personas.find((p) => p.id === id)?.name)].filter(Boolean))];
-  const query = r.source_kind === "keyword_search" ? r.source.replace(/^Google News:\s*/, "") : null;
-  const rel = r.relevance != null ? Number(r.relevance) : null;
-  const score = rel != null ? scoreLabel(rel) : null;
-  const row = "grid gap-0.5 sm:grid-cols-[150px_minmax(0,1fr)] sm:gap-3";
-  const key = "text-[11.5px] font-semibold uppercase tracking-wide text-faint sm:pt-0.5";
-
-  return (
-    <details className="group mt-2">
-      <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-[12.5px] font-medium text-accent hover:underline">
-        <span className="transition group-open:rotate-90">›</span> Why this signal
-      </summary>
-      <div className="mt-2 flex flex-col gap-2.5 rounded-lg border border-line bg-subtle/60 px-4 py-3 text-[13px]">
-        <div className={row}>
-          <span className={key}>Found by</span>
-          <span>
-            {r.source}
-            <span className="text-faint"> · {SOURCE_KIND[r.source_kind ?? ""] ?? "Feed"}</span>
-            {query && <> searching for <span lang="ja" className="font-medium">「{query}」</span></>}
-            {r.published_at && <span className="text-faint"> · published {fmt(r.published_at)}</span>}
-          </span>
-        </div>
-        <div className={row}>
-          <span className={key}>Relevance</span>
-          <span>
-            {score && rel != null ? (
-              <>
-                <span className={`mr-2 rounded-full px-2 py-0.5 text-[11.5px] font-semibold ${score.cls}`}>{score.label} · {rel.toFixed(2)}</span>
-                {r.why || <span className="text-faint">Scored by Gemini against your personas, industries and services (reason recorded from the next run).</span>}
-              </>
-            ) : (
-              <span className="text-faint">Not scored yet: waiting for the next Gemini run.</span>
-            )}
-          </span>
-        </div>
-        <div className={row}>
-          <span className={key}>Sorted into</span>
-          <span>
-            {cat ? (
-              <>
-                <span className="font-medium">{cat.name_en}{sub && <> › {sub.name_en}</>}</span>
-                {r.sort_by === "service" && <span className="text-faint"> (from its matching service)</span>}
-                {r.sort_why && <span className="text-muted"> — {r.sort_why}</span>}
-              </>
-            ) : (
-              <span className="text-faint">No category fits{r.sort_why ? ` — ${r.sort_why}` : ""}</span>
-            )}
-          </span>
-        </div>
-        {sub && (
-          <div className={row}>
-            <span className={key}>Keywords found</span>
-            <span lang="ja">
-              {matched.length ? (
-                <span className="flex flex-wrap gap-1">{matched.map((k) => <span key={k} className="rounded bg-surface px-1.5 py-0.5 text-[12px] ring-1 ring-line">{k}</span>)}</span>
-              ) : (
-                <span className="text-faint" lang="en">None of this niche&apos;s keywords appear word-for-word; Gemini placed it by meaning.</span>
-              )}
-            </span>
-          </div>
-        )}
-        {(r.service || readers.length > 0) && (
-          <div className={row}>
-            <span className={key}>Matches</span>
-            <span lang="ja">
-              {r.service && <>Service: {r.service}</>}
-              {r.service && readers.length > 0 && " · "}
-              {readers.length > 0 && <>Readers: {readers.join("、")}</>}
-            </span>
-          </div>
-        )}
-        {r.deep && (
-          <div className={row}>
-            <span className={key}>Evidence</span>
-            <span>{r.deep.full_text ? "Full article read; the facts above are taken from it." : "Article is paywalled or not readable; analysed from its summary."}</span>
-          </div>
-        )}
-      </div>
-    </details>
-  );
-}

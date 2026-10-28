@@ -5,6 +5,8 @@ import { env, has } from "@/lib/env";
 import { generateJson } from "@/lib/gemini";
 import { loadTargeting, targetingBrief } from "@/lib/targeting";
 import { loadTaxonomy, resolveSlug, taxonomyBrief } from "@/lib/taxonomy";
+import { TYPE_KEYS, TYPE_PROMPT } from "@/lib/signal-types";
+import { feedbackExamples } from "@/lib/feedback";
 import type { Job } from "./types";
 
 const BATCH = 40; // items per Gemini call (titles + short summaries)
@@ -21,6 +23,7 @@ const Result = z.preprocess((v) => (Array.isArray(v) ? { items: v } : v), z.obje
       service_slug: z.string().nullable().catch(null),
       subcategory_slug: z.string().nullable().catch(null),
       why: z.string().catch(""),
+      signal_type: z.enum(TYPE_KEYS).nullable().catch(null),
       buyer_problem: z.string().catch(""),
       angle: z.string().catch(""),
     }),
@@ -46,6 +49,7 @@ function prompt(brief: string, rows: Row[]): string {
     "  category fits), or null.",
     "- why: ENGLISH ONLY (never Japanese), max 160 characters — the concrete reason for this relevance score: which persona or",
     "  industry it concerns and what makes it useful (or not) as a content hook.",
+    `- ${TYPE_PROMPT}`,
     "- buyer_problem: in Japanese, max 60 characters — the business problem implied for a Japanese company.",
     "- angle: in Japanese, max 80 characters — the article angle Renesis could write (not a news rewrite).",
     "",
@@ -54,7 +58,7 @@ function prompt(brief: string, rows: Row[]): string {
     "ITEMS:",
     ...rows.map((r, i) => `[${i}] (${r.source}) ${r.title}${r.summary ? ` — ${r.summary.slice(0, 200)}` : ""}`),
     "",
-    'Return ONLY JSON: {"items":[{"i":0,"relevance":0.0,"service_slug":null,"subcategory_slug":null,"why":"","buyer_problem":"","angle":""}, ...]} with one entry per item.',
+    'Return ONLY JSON: {"items":[{"i":0,"relevance":0.0,"service_slug":null,"subcategory_slug":null,"why":"","signal_type":null,"buyer_problem":"","angle":""}, ...]} with one entry per item.',
   ].join("\n");
 }
 
@@ -75,7 +79,8 @@ export const analyzeSignals: Job = {
     const targeting = await loadTargeting();
     const taxonomy = await loadTaxonomy();
     const personaName = (id: string) => targeting.personas.find((p) => p.id === id)?.name;
-    const brief = `${targetingBrief(targeting)}\n\n${taxonomyBrief(taxonomy, personaName)}`;
+    const feedback = await feedbackExamples();
+    const brief = `${targetingBrief(targeting)}\n\n${taxonomyBrief(taxonomy, personaName)}${feedback ? `\n\n${feedback}` : ""}`;
     const serviceId = new Map(targeting.services.filter((s) => s.active).map((s) => [s.slug, s.id]));
 
     const pending = await sql<Row[]>`
@@ -118,6 +123,7 @@ export const analyzeSignals: Job = {
             category_id = ${resolveSlug(taxonomy, it.subcategory_slug).category_id},
             subcategory_id = ${resolveSlug(taxonomy, it.subcategory_slug).subcategory_id},
             sorted_at = now(),
+            signal_type = ${it.signal_type},
             buyer_problem = ${it.buyer_problem || null},
             analysis = ${sql.json({ angle: it.angle, service_slug: it.service_slug, subcategory_slug: it.subcategory_slug, why: it.why })},
             analyzed_at = now()
