@@ -3,6 +3,7 @@ import { spokePrompt } from "@/lib/content/spokes";
 import type { PackageInput } from "@/lib/content/package";
 import { CopyButton } from "../copy-button";
 import { HoverCard } from "../hover-card";
+import { PostedToggle } from "./posted-toggle";
 
 const SCORE_META = {
   search: { label: "Search", color: "#2F6B55", what: "Will people Google it? High = an SEO article keeps bringing visitors for months." },
@@ -28,7 +29,8 @@ export function SlotBadge({ slot, deadline }: { slot: Slot | null; deadline?: Da
 }
 
 /** Hub + spokes + scores for one topic, with a copyable prompt for each spoke. */
-export function ContentPackage({ t, plan, scores, slot, hubUrl }: {
+export function ContentPackage({ t, plan, scores, slot, hubUrl, posted = {} }: {
+  posted?: Record<string, string | null>;
   t: PackageInput & { id: string };
   plan: FormatPlan | null;
   scores: FormatScores | null;
@@ -70,6 +72,7 @@ export function ContentPackage({ t, plan, scores, slot, hubUrl }: {
             <span className="text-[13px] font-semibold">{CHANNELS[s.channel].formatLabel}</span>
             <span className="text-[12px] text-sprout">{s.timing}</span>
             <span className="min-w-0 flex-1 text-[12px] text-muted">{s.why}</span>
+            <PostedToggle topicId={t.id} channel={s.channel} initial={!!posted[s.channel]} />
             <CopyButton
               text={spokePrompt(s.channel, t, hubUrl)}
               label="⧉ Copy prompt"

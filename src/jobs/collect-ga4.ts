@@ -133,6 +133,46 @@ export const collectGa4: Job = {
       }
     });
 
-    return { status: "ok", stats: { startDate, endDate, pageRows: byPage.length, sourceRows: bySource.length, leadRows: leads.length, stored: rows.length } };
+    // Visits + form fills that came through Kizashi's tracked links (utm_campaign = kizashi-…).
+    const campaignDims = ["date", "sessionCampaignName", "sessionSource", "sessionMedium", "sessionManualAdContent", "landingPage"].map((name) => ({ name }));
+    const isKizashi = { filter: { fieldName: "sessionCampaignName", stringFilter: { matchType: "BEGINS_WITH", value: "kizashi-" } } };
+    const [camp, campLeads] = await Promise.all([
+      report({ dateRanges, dimensions: campaignDims, metrics: [{ name: "sessions" }, { name: "engagedSessions" }], dimensionFilter: isKizashi }),
+      report({
+        dateRanges, dimensions: campaignDims, metrics: [{ name: "eventCount" }],
+        dimensionFilter: { andGroup: { expressions: [isKizashi, { filter: { fieldName: "eventName", inListFilter: { values: FORM_FILL_EVENTS } } }] } },
+      }),
+    ]);
+    const cm = new Map<string, { date: string; campaign: string; source: string; medium: string; content: string; landing_path: string; sessions: number; engaged: number; leads: number }>();
+    const key = (r: Ga4Row) => r.dimensionValues.map((d) => d.value).join("|");
+    const base = (r: Ga4Row) => {
+      const [d, campaign, source, medium, content, landing] = r.dimensionValues.map((x) => x.value);
+      return { date: ga4Date(d), campaign, source, medium, content: content === "(not set)" ? "" : content, landing_path: normPath(landing || "/"), sessions: 0, engaged: 0, leads: 0 };
+    };
+    for (const r of camp) {
+      const row = cm.get(key(r)) ?? base(r);
+      row.sessions += Number(r.metricValues[0].value);
+      row.engaged += Number(r.metricValues[1].value);
+      cm.set(key(r), row);
+    }
+    for (const r of campLeads) {
+      const row = cm.get(key(r)) ?? base(r);
+      row.leads += Number(r.metricValues[0].value);
+      cm.set(key(r), row);
+    }
+    // Paths can normalise to the same value: merge before inserting.
+    const merged = new Map<string, ReturnType<typeof base>>();
+    for (const r of cm.values()) {
+      const k = [r.date, r.campaign, r.source, r.medium, r.content, r.landing_path].join("|");
+      const m = merged.get(k);
+      if (m) { m.sessions += r.sessions; m.engaged += r.engaged; m.leads += r.leads; } else merged.set(k, { ...r });
+    }
+    await sql.begin(async (tx) => {
+      await tx`delete from channel_metrics_daily where date between ${startDate} and ${endDate}`;
+      const all = [...merged.values()];
+      for (let i = 0; i < all.length; i += 1_000) await tx`insert into channel_metrics_daily ${tx(all.slice(i, i + 1_000))}`;
+    });
+
+    return { status: "ok", stats: { startDate, endDate, pageRows: byPage.length, sourceRows: bySource.length, leadRows: leads.length, stored: rows.length, trackedLinkRows: merged.size } };
   },
 };

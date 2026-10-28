@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { TrendingKeywords } from "./trending";
+import { WhatWorks } from "./what-works";
 import { env, has } from "@/lib/env";
 import {
   contentEngine, dataEnd, groupPerformance, LEAD_WEIGHT, MIN_PIECES, performancePoints, sessionsSeries,
@@ -153,6 +154,10 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
           cat={q.kw && /^[a-z0-9-]{1,40}$/.test(q.kw) ? q.kw : undefined}
           baseQs={{ ...(range.key !== "28d" ? { range: range.key } : {}), ...(range.key === "custom" ? { from: range.start, to: range.end } : {}), ...(showAll ? { scope: "all" } : {}) }}
         />
+      </Suspense>
+
+      <Suspense fallback={<div className="card h-40 animate-pulse bg-subtle" aria-hidden="true" />}>
+        <WhatWorks />
       </Suspense>
 
       <div className="flex flex-wrap items-start gap-5">

@@ -1,6 +1,8 @@
 // Decide each topic's content package: the on-site hub (fixed by its slot) and the off-site spokes
 // (Gemini, within clear rules), then score it. One Gemini call for the whole week.
 import { z } from "zod";
+import { plannedHubDate } from "./schedule";
+import { resultsSummary } from "./format-results";
 import { sql } from "./db";
 import { generateJson } from "./gemini";
 import {
@@ -42,7 +44,7 @@ export async function planFormats(topicIds: string[]): Promise<{ planned: number
            (select count(*)::int from topic_signals ts where ts.topic_id = t.id) as signals
     from topics t where t.id = any(${topicIds}::uuid[])
     order by t.score desc nulls last`;
-  const channels = await enabledChannels();
+  const [channels, results] = await Promise.all([enabledChannels(), resultsSummary().catch(() => "")]);
   const slotOf = (t: T): Slot => t.slot ?? (t.kind === "lead_magnet" ? "lead_magnet" : t.origin === "refresh" ? "refresh" : "evergreen");
   const firstWeekOfMonth = Number((topics[0]?.week_of ?? "2000-01-01").slice(8, 10)) <= 7;
 
@@ -65,6 +67,7 @@ export async function planFormats(topicIds: string[]): Promise<{ planned: number
       "- timing: when to post relative to the hub going live, e.g. \"same day\", \"within 24h\", \"day 3\", \"in Friday newsletter\".",
       "- why: ENGLISH ONLY, max 140 characters, for the whole plan: why this mix will bring traffic.",
       "",
+      ...(results ? [results, ""] : []),
       "TOPICS:",
       ...topics.map((t, i) => [
         `[${i}] ${t.title_ja}`,
@@ -81,6 +84,7 @@ export async function planFormats(topicIds: string[]): Promise<{ planned: number
 
   let planned = 0;
   let videoUsed = false;
+  const nth = new Map<string, number>(); // order within each slot, to spread evergreen days
   for (const [i, t] of topics.entries()) {
     const it = out.items.find((x) => x.i === i);
     const slot = slotOf(t);
@@ -105,8 +109,10 @@ export async function planFormats(topicIds: string[]): Promise<{ planned: number
     await sql`
       update topics set slot = ${slot}, format_plan = ${sql.json(plan as never)}, format_scores = ${sql.json(scores as never)},
         magnet_format = ${slot === "lead_magnet" ? magnet : sql`magnet_format`},
-        deadline = ${slot === "fast_take" ? new Date(new Date(t.created_at).getTime() + 48 * 3_600_000) : null}
+        deadline = ${slot === "fast_take" ? new Date(new Date(t.created_at).getTime() + 48 * 3_600_000) : null},
+        planned_date = coalesce(planned_date, ${plannedHubDate(t.week_of, slot, nth.get(slot) ?? 0)}::date)
       where id = ${t.id}`;
+    nth.set(slot, (nth.get(slot) ?? 0) + 1);
     planned++;
   }
   return { planned };

@@ -47,6 +47,7 @@ type Topic = {
   format_scores: FormatScores | null;
   deadline: Date | null;
   hub_url: string | null;
+  posted: Record<string, string | null>;
   signals: { title: string; url: string | null; source: string; published: string | null; relevance: number | null; why: string | null; niche: string | null }[];
 };
 
@@ -120,6 +121,7 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
              t.score_breakdown, t.rationale, t.outline, t.cta, t.status, ci.status as item_status, t.keyword_plan, t.research,
              i.name as persona, sv.landing_url as service_url, t.week_of::text,
              t.slot, t.format_plan, t.format_scores, t.deadline,
+             coalesce((select json_object_agg(channel, posted_at) from topic_spokes s where s.topic_id = t.id), '{}') as posted,
              (select p.url from publications p join content_items c2 on c2.id = p.content_item_id
                where c2.topic_id = t.id and p.channel = 'website' and p.status = 'live' limit 1) as hub_url,
              coalesce((select json_agg(json_build_object(
@@ -480,6 +482,7 @@ function TopicDetails({ t }: { t: Topic }) {
           scores={t.format_scores}
           slot={t.slot}
           hubUrl={t.hub_url}
+          posted={t.posted}
         />
       </section>
     </details>

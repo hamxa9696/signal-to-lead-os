@@ -27,6 +27,7 @@ export type TopicFull = {
   format_scores: import("../formats").FormatScores | null;
   deadline: Date | null;
   hub_url: string | null;
+  posted: Record<string, string | null>;
   persona: { name: string; description: string | null; pains: string | null; industries: string[] } | null;
   signals: { title: string; url: string | null; buyer_problem: string | null; source?: string | null; why?: string | null; published?: string | null }[];
 };
@@ -36,6 +37,7 @@ export async function getTopic(id: string): Promise<TopicFull | null> {
   const [t] = await sql<TopicFull[]>`
     select t.id, t.kind, t.magnet_format, t.title_ja, t.title_en, t.primary_keyword, t.secondary_keywords,
            t.search_intent, t.rationale, t.outline, t.cta, t.status, t.week_of::text, t.origin, t.target_path, t.research, t.keyword_plan, t.slot, t.format_plan, t.format_scores, t.deadline,
+           coalesce((select json_object_agg(channel, posted_at) from topic_spokes s where s.topic_id = t.id), '{}') as posted,
            (select p.url from publications p join content_items c2 on c2.id = p.content_item_id
              where c2.topic_id = t.id and p.channel = 'website' and p.status = 'live' limit 1) as hub_url,
            sv.name_ja as service_name, sv.landing_url as service_url,

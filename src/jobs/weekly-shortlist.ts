@@ -10,6 +10,7 @@ import { activePersonas, loadTargeting, targetingBrief } from "@/lib/targeting";
 import { groupPerformance, performancePoints, whatWorked } from "@/lib/performance";
 import { planFormats } from "@/lib/format-plan";
 import { MAGNET_TYPES } from "@/lib/formats";
+import { resultsSummary } from "@/lib/format-results";
 import type { Job } from "./types";
 
 export const MAGNET_FORMATS = ["checklist", "calculator", "comparison", "template", "mini_report", "self_assessment", "case_collection"] as const;
@@ -59,6 +60,7 @@ function buildPrompt(p: {
   magnetFormat: string;
   factSheet: string;
   worked: string[];
+  results?: string;
 }): string {
   return [
     "You are the content strategist for Renesis Tech Japan (renesistech.jp), an AI-native engineering firm",
@@ -104,6 +106,7 @@ function buildPrompt(p: {
       ? p.queries.map((q) => `- ${q.query} — ${q.impressions} imp, ${q.clicks} clicks, pos ${q.position.toFixed(1)}`)
       : ["- (none yet — Search Console not connected or no data)"]),
     "",
+    p.results ? `${p.results}\n` : "",
     "WHAT WORKED ON renesistech.jp (last 28 days; do more of this, without duplicating it):",
     ...(p.worked.length ? p.worked.map((w) => `- ${w}`) : ["- (no performance data yet)"]),
     "",
@@ -197,7 +200,7 @@ export function makeWeeklyShortlist(opts: { force?: boolean } = {}): Job {
       const magnetFormat = [...new Set(recentFormats)].join(", ");
 
       const [fact] = await sql<{ content: string }[]>`select content from knowledge_docs where kind = 'fact_sheet'`;
-      const [perf, worked] = await Promise.all([groupPerformance(), whatWorked()]);
+      const [perf, worked, results] = await Promise.all([groupPerformance(), whatWorked(), resultsSummary().catch(() => "")]);
 
       const { topics } = await generateJson(
         buildPrompt({
@@ -208,6 +211,7 @@ export function makeWeeklyShortlist(opts: { force?: boolean } = {}): Job {
           magnetFormat,
           factSheet: fact?.content ?? "",
           worked,
+          results,
         }),
         Result,
         { temperature: 0.5 },
