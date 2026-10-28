@@ -27,6 +27,10 @@ export default async function Home() {
         <p className="mt-1 text-sm text-muted">
           {ready}/{checks.length} ready. Setup steps are in <code className="text-ink">docs/SETUP.md</code>.
         </p>
+        <p className="mt-1 text-sm text-muted">
+          Brevo and Make.com are optional: the website&apos;s own forms already collect emails. Their settings stay on{" "}
+          <a href="/delivery" className="font-medium text-accent hover:underline">Delivery</a>.
+        </p>
         <ul className="mt-4 divide-y divide-white/10 card">
           {checks.map((c) => (
             <li key={c.name} className="flex items-start gap-3 px-4 py-3">

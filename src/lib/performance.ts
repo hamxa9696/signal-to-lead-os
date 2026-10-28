@@ -276,12 +276,15 @@ export async function avgPosition(days: number, offsetDays = 0): Promise<number 
 
 export type Funnel = { sessions: number; engaged: number; offerViews: number; leads: number };
 
+/** Website pages whose main job is a form (the contact form also sits on a few other pages). */
+export const FORM_PAGES = ["/contact", "/ai-shindan", "/discovery"];
+
 export async function funnel(days: number): Promise<Funnel> {
   const end = await dataEnd();
   const [r] = await sql<{ sessions: number; engaged: number; offer: number }[]>`
     select coalesce(sum(sessions) filter (where page_path = ${SITE_PATH}), 0)::int as sessions,
            coalesce(sum(engaged_sessions) filter (where page_path = ${SITE_PATH}), 0)::int as engaged,
-           coalesce(sum(sessions) filter (where page_path in (
+           coalesce(sum(sessions) filter (where page_path = any(${FORM_PAGES}) or page_path in (
              select p.page_path from publications p join content_items ci on ci.id = p.content_item_id
              where ci.type = 'lead_magnet' and p.page_path is not null)), 0)::int as offer
     from metrics_daily

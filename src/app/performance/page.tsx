@@ -91,8 +91,8 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
         <Kpi label="Avg Google position" value={posNow != null ? posNow.toFixed(1) : "—"}>
           <Delta now={posNow} prev={posPrev} lowerIsBetter unit="places" />
         </Kpi>
-        <Kpi label="Form fills" value={n(cur.leads)}><Delta now={cur.leads} prev={prev.leads} unit="abs" /></Kpi>
-        <Kpi label="Lead-magnet downloads" value={n(cur.downloads)} highlight><Delta now={cur.downloads} prev={prev.downloads} unit="abs" /></Kpi>
+        <Kpi label="Visitors" value={n(cur.users)}><Delta now={cur.users} prev={prev.users} /></Kpi>
+        <Kpi label="Website form fills" value={n(cur.leads + cur.downloads)} highlight><Delta now={cur.leads + cur.downloads} prev={prev.leads + prev.downloads} unit="abs" /></Kpi>
       </section>
 
       <div className="flex flex-wrap items-stretch gap-5">
@@ -103,22 +103,22 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
         <section aria-label="Lead funnel" className="card flex min-w-0 flex-[1_1_300px] flex-col gap-3.5 px-[22px] py-5">
           <div>
             <h2 className="text-base font-semibold">
-              {fun.sessions > 0 ? `${pct(fun.leads, fun.sessions).toFixed(1)}% of visits become leads` : "From visit to lead"}
+              {fun.sessions > 0 ? `${pct(fun.leads, fun.sessions).toFixed(1)}% of visits end in a form fill` : "From visit to form fill"}
             </h2>
             <p className="mt-1 text-[12.5px] text-faint">Last {DAYS} days</p>
           </div>
           <div className="flex flex-col gap-3">
             <FunnelRow label="Sessions" value={fun.sessions} share={100} base={fun.sessions} />
             <FunnelRow label="Engaged sessions" value={fun.engaged} share={pct(fun.engaged, fun.sessions)} base={fun.sessions} />
-            <FunnelRow label="Saw a lead-magnet page" value={fun.offerViews} share={pct(fun.offerViews, fun.sessions)} base={fun.sessions} />
-            <FunnelRow label="Leads (forms + downloads)" value={fun.leads} share={pct(fun.leads, fun.sessions)} base={fun.sessions} strong />
+            <FunnelRow label="Reached a form page" value={fun.offerViews} share={pct(fun.offerViews, fun.sessions)} base={fun.sessions} />
+            <FunnelRow label="Submitted a form" value={fun.leads} share={pct(fun.leads, fun.sessions)} base={fun.sessions} strong />
           </div>
           <p className="mt-auto border-t border-[#F0F1F4] pt-3 text-[12.5px] text-muted">
             {fun.sessions === 0
-              ? "Fills in once GA4 is connected and lead-magnet landing pages are live."
+              ? "Fills in once GA4 is connected."
               : fun.offerViews < fun.engaged * 0.2
-                ? "Most engaged visitors never reach an offer: add the lead-magnet CTA to the top articles."
-                : "Visitors reach the offers; improve the landing pages' conversion next."}
+                ? "Most engaged visitors never reach a form: add a clear contact / AI-shindan CTA to the top articles."
+                : "Visitors reach the forms; shorten or simplify the forms next."}
           </p>
         </section>
       </div>

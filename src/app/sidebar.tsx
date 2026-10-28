@@ -27,7 +27,6 @@ const LINKS = [
   { href: "/topics", label: "Topics", icon: "topics" },
   { href: "/signals", label: "Signals", icon: "signals" },
   { href: "/review", label: "Monthly review", icon: "review" },
-  { href: "/delivery", label: "Delivery", icon: "delivery" },
   { href: "/knowledge", label: "Knowledge", icon: "knowledge" },
   { href: "/status", label: "Status", icon: "status" },
 ];

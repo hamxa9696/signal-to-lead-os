@@ -1,5 +1,5 @@
 // Pull GA4 page metrics (per day × page, and per day × page × source/medium) plus
-// generate_lead events into metrics_daily.
+// form-submission events into metrics_daily.
 import { sql } from "@/lib/db";
 import { env, has } from "@/lib/env";
 import { ga4ReportUrl, googleFetch } from "@/lib/google";
@@ -11,6 +11,12 @@ export const SITE_PATH = "*";
 const BACKFILL_DAYS = 90;
 const REFRESH_DAYS = 7; // GA4 keeps processing for a couple of days
 const PAGE = 100_000;
+/**
+ * GA4 events that mean "a visitor submitted a form on the website". renesistech.jp's own forms
+ * fire rh_submit on success (rh_form_start / rh_validation_error / rh_submit_error are not fills);
+ * generate_lead is the GA4 standard name, kept in case the site adopts it.
+ */
+export const FORM_FILL_EVENTS = ["rh_submit", "generate_lead"];
 
 type Ga4Row = { dimensionValues: { value: string }[]; metricValues: { value: string }[] };
 
@@ -45,7 +51,7 @@ type Agg = { date: string; path: string; sm: string; m: number[]; leads: number 
 
 export const collectGa4: Job = {
   name: "collect-ga4",
-  description: "Pull GA4 sessions, engagement and lead events per page into metrics_daily",
+  description: "Pull GA4 sessions, engagement and website form fills per page into metrics_daily",
   async run() {
     if (!has(env.googleServiceAccountJson) || !has(env.ga4PropertyId)) {
       return { status: "skipped", stats: {}, note: "GOOGLE_SERVICE_ACCOUNT_JSON / GA4_PROPERTY_ID not set (SETUP.md §3–4)" };
@@ -53,7 +59,11 @@ export const collectGa4: Job = {
     const [{ max }] = await sql<{ max: string | null }[]>`
       select max(date)::text as max from metrics_daily where channel = 'website'`;
     const endDate = addDays(tokyoToday(), -1);
-    const startDate = max ? addDays(endDate, -REFRESH_DAYS) : addDays(endDate, -BACKFILL_DAYS);
+    // Full backfill on first run, and again while no form fill has ever been stored (so a change to
+    // FORM_FILL_EVENTS fills in history instead of only the last week).
+    const [{ any }] = await sql<{ any: boolean }[]>`
+      select exists(select 1 from metrics_daily where channel = 'website' and leads > 0) as any`;
+    const startDate = max && any ? addDays(endDate, -REFRESH_DAYS) : addDays(endDate, -BACKFILL_DAYS);
     const dateRanges = [{ startDate, endDate }];
 
     // Several raw paths can normalise to the same one (trailing slash, encoding), so aggregate.
@@ -85,12 +95,12 @@ export const collectGa4: Job = {
     const site = await report({ dateRanges, dimensions: [{ name: "date" }], metrics: METRICS.map((name) => ({ name })) });
     for (const r of site) add(ga4Date(r.dimensionValues[0].value), SITE_PATH, "", r.metricValues.map((v) => Number(v.value)), 0);
 
-    // generate_lead events (fired by the website forms) per page.
+    // Form submissions (fired by the website's own forms) per page.
     const leads = await report({
       dateRanges,
       dimensions: [{ name: "date" }, { name: "pagePath" }],
       metrics: [{ name: "eventCount" }],
-      dimensionFilter: { filter: { fieldName: "eventName", stringFilter: { matchType: "EXACT", value: "generate_lead" } } },
+      dimensionFilter: { filter: { fieldName: "eventName", inListFilter: { values: FORM_FILL_EVENTS } } },
     });
     for (const r of leads) {
       const date = ga4Date(r.dimensionValues[0].value);
