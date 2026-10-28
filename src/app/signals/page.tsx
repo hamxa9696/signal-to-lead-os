@@ -25,12 +25,22 @@ const fmt = (d: Date | null) =>
   d ? new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Tokyo", month: "short", day: "numeric" }).format(d) : "—";
 const UUID = /^[0-9a-f-]{36}$/;
 
-export default async function SignalsPage({ searchParams }: { searchParams: Promise<{ status?: string; cat?: string; sub?: string }> }) {
+export default async function SignalsPage({ searchParams }: { searchParams: Promise<{ status?: string; cat?: string; sub?: string; q?: string; source?: string }> }) {
   const q = await searchParams;
   const status = TABS.some((t) => t.key === q.status) ? q.status! : "analyzed";
   const unsorted = q.cat === "none";
   const catId = q.cat && UUID.test(q.cat) ? q.cat : null;
   const subId = q.sub && UUID.test(q.sub) ? q.sub : null;
+  const kw = (q.q ?? "").trim().slice(0, 80);
+  const sourceName = (q.source ?? "").trim().slice(0, 120);
+  // Keyword filter from the dashboard: every word must appear in the title, summary or article.
+  const kwFilter = kw
+    ? kw.split(/\s+/).filter(Boolean).reduce(
+        (acc, w) => sql`${acc} and (s.title || ' ' || coalesce(s.summary, '') || ' ' || coalesce(left(s.body, 6000), '')) ilike ${"%" + w + "%"}`,
+        sql``,
+      )
+    : sql``;
+  const srcFilter = sourceName ? sql`and src.name = ${sourceName}` : sql``;
 
   const filter = subId
     ? sql`and s.subcategory_id = ${subId}`
@@ -51,7 +61,7 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
       from signals s join sources src on src.id = s.source_id
       left join services sv on sv.id = s.service_id
       left join subcategories sc on sc.id = s.subcategory_id
-      where s.status = ${status} ${filter}
+      where s.status = ${status} ${filter} ${kwFilter} ${srcFilter}
       order by (s.deep is not null) desc, s.relevance desc nulls last, coalesce(s.published_at, s.fetched_at) desc
       limit 200`,
     sql<{ status: string; n: number }[]>`select status, count(*)::int as n from signals group by status`,
@@ -128,6 +138,14 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
             </h2>
             {selPersonas.length > 0 && <p lang="ja" className="text-[12.5px] text-muted">Readers: {selPersonas.join("、")}</p>}
           </div>
+          {(kw || sourceName) && (
+            <p className="-mt-1 flex flex-wrap items-center gap-2 text-[13px]">
+              <span className="rounded-full bg-accent-soft px-2.5 py-1 font-medium text-accent-ink">
+                {kw ? <>Keyword: <span lang="ja">{kw}</span></> : <>Found by: <span lang="ja">{sourceName}</span></>}
+              </span>
+              <Link prefetch={false} href={href({ cat: q.cat, sub: q.sub })} className="text-faint hover:text-ink">✕ clear</Link>
+            </p>
+          )}
           {selSub?.description && <p className="-mt-1 text-[13px] text-faint">{selSub.description}</p>}
           <ul className="card divide-y divide-line">
         {rows.map((r, i) => (

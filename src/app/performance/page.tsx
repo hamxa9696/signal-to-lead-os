@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { TrendingKeywords } from "./trending";
 import { env, has } from "@/lib/env";
 import {
   avgPosition, contentEngine, funnel, groupPerformance, LEAD_WEIGHT, leadsByService, MIN_PIECES,
@@ -122,6 +124,10 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
           </p>
         </section>
       </div>
+
+      <Suspense fallback={<div className="card h-40 animate-pulse bg-subtle" aria-hidden="true" />}>
+        <TrendingKeywords />
+      </Suspense>
 
       <div className="flex flex-wrap items-start gap-5">
         <section aria-label="Top content" className="card min-w-0 flex-[2_1_520px] overflow-hidden">
