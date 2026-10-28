@@ -332,3 +332,156 @@ export async function contentEngine(): Promise<Engine> {
       (select count(*) from content_items where status in ('in_review', 'needs_revision'))::int as "inReview"`;
   return r;
 }
+
+// ---------------------------------------------------------------------------
+// Date-range versions for the dashboard (inclusive JST dates).
+// ---------------------------------------------------------------------------
+
+export type Span = { start: string; end: string };
+const EMPTY: Totals = { sessions: 0, users: 0, leads: 0, downloads: 0, clicks: 0, impressions: 0 };
+
+export async function spanTotals(s: Span | null): Promise<Totals> {
+  if (!s) return EMPTY;
+  const [[ga], [sc], [dl]] = await Promise.all([
+    sql<{ sessions: number; users: number; leads: number }[]>`
+      select coalesce(sum(sessions), 0)::int as sessions, coalesce(sum(users), 0)::int as users, coalesce(sum(leads), 0)::int as leads
+      from metrics_daily
+      where channel = 'website' and page_path = ${SITE_PATH} and source_medium = '' and date between ${s.start} and ${s.end}`,
+    sql<{ clicks: number; impressions: number }[]>`
+      select coalesce(sum(clicks), 0)::int as clicks, coalesce(sum(impressions), 0)::int as impressions
+      from search_queries_daily where date between ${s.start} and ${s.end}`,
+    sql<{ downloads: number }[]>`
+      select count(*)::int as downloads from form_submissions
+      where form_kind = 'lead_magnet' and (received_at at time zone 'Asia/Tokyo')::date between ${s.start} and ${s.end}`,
+  ]);
+  return { ...ga, ...sc, ...dl };
+}
+
+export async function spanAvgPosition(s: Span | null): Promise<number | null> {
+  if (!s) return null;
+  const [r] = await sql<{ pos: number | null }[]>`
+    select (sum(position * impressions) / nullif(sum(impressions), 0))::float as pos
+    from search_queries_daily where date between ${s.start} and ${s.end}`;
+  return r.pos;
+}
+
+export async function spanFunnel(s: Span | null, totals: Totals): Promise<Funnel> {
+  if (!s) return { sessions: 0, engaged: 0, offerViews: 0, leads: 0 };
+  const [r] = await sql<{ sessions: number; engaged: number; offer: number }[]>`
+    select coalesce(sum(sessions) filter (where page_path = ${SITE_PATH}), 0)::int as sessions,
+           coalesce(sum(engaged_sessions) filter (where page_path = ${SITE_PATH}), 0)::int as engaged,
+           coalesce(sum(sessions) filter (where page_path = any(${FORM_PAGES}) or page_path in (
+             select p.page_path from publications p join content_items ci on ci.id = p.content_item_id
+             where ci.type = 'lead_magnet' and p.page_path is not null)), 0)::int as offer
+    from metrics_daily
+    where channel = 'website' and source_medium = '' and date between ${s.start} and ${s.end}`;
+  return { sessions: r.sessions, engaged: r.engaged, offerViews: r.offer, leads: totals.leads + totals.downloads };
+}
+
+export async function spanLeadsByService(s: Span | null): Promise<ServiceLeads[]> {
+  if (!s) return [];
+  return sql<ServiceLeads[]>`
+    with piece as (
+      select p.page_path, ci.id as item_id, coalesce(sv.name_ja, 'その他') as service
+      from publications p
+      join content_items ci on ci.id = p.content_item_id
+      left join topics t on t.id = ci.topic_id
+      left join services sv on sv.id = t.service_id
+      where p.channel = 'website'
+    )
+    select service, sum(leads)::int as leads from (
+      select pc.service,
+             coalesce((select sum(m.leads) from metrics_daily m
+                       where m.channel = 'website' and m.source_medium = '' and m.page_path = pc.page_path
+                         and m.date between ${s.start} and ${s.end}), 0)
+             + (select count(*) from form_submissions fs
+                where fs.content_item_id = pc.item_id
+                  and (fs.received_at at time zone 'Asia/Tokyo')::date between ${s.start} and ${s.end}) as leads
+      from piece pc
+    ) x
+    group by service having sum(leads) > 0 order by 2 desc`;
+}
+
+/** Every blog page with performance for `cur`, plus sessions in `prev` for the change column. */
+export async function spanPagePerformance(cur: Span | null, prev: Span | null): Promise<PageRow[]> {
+  const c = cur ?? { start: "1900-01-01", end: "1900-01-01" };
+  const p = prev ?? c;
+  return sql<PageRow[]>`
+    with pages as (
+      select p.page_path as path, ci.title, true as ours, ci.type as kind, sv.name_ja as service,
+             ci.topic_id, p.published_at, ci.id as item_id
+      from publications p
+      join content_items ci on ci.id = p.content_item_id
+      left join topics t on t.id = ci.topic_id
+      left join services sv on sv.id = t.service_id
+      where p.channel = 'website' and p.page_path is not null
+      union all
+      select sp.path, sp.title, false, null, null, null, sp.lastmod, null
+      from site_pages sp
+      where sp.section = 'blog' and sp.path <> '/blog'
+        and not exists (select 1 from publications p where p.page_path = sp.path)
+    ),
+    ga as (
+      select page_path,
+             sum(sessions) filter (where date between ${c.start} and ${c.end})::int as sessions,
+             sum(sessions) filter (where date between ${p.start} and ${p.end})::int as sessions_prev,
+             sum(engaged_sessions) filter (where date between ${c.start} and ${c.end})::float as engaged,
+             avg(avg_engagement_sec) filter (where date between ${c.start} and ${c.end} and sessions > 0)::float as eng_sec,
+             sum(leads) filter (where date between ${c.start} and ${c.end})::int as leads
+      from metrics_daily
+      where channel = 'website' and source_medium = '' and date between least(${c.start}::date, ${p.start}::date) and ${c.end}
+      group by page_path
+    ),
+    sc as (
+      select ${GSC_PATH} as path, sum(clicks)::int as clicks, sum(impressions)::int as impressions,
+             (sum(position * impressions) / nullif(sum(impressions), 0))::float as position
+      from search_queries_daily where date between ${c.start} and ${c.end}
+      group by 1
+    ),
+    dl as (
+      select content_item_id, count(*)::int as downloads from form_submissions
+      where form_kind = 'lead_magnet' and (received_at at time zone 'Asia/Tokyo')::date between ${c.start} and ${c.end}
+      group by 1
+    )
+    select pg.path, pg.title, pg.ours, pg.kind, pg.service, pg.topic_id, pg.published_at,
+           coalesce(ga.sessions, 0) as sessions, coalesce(ga.sessions_prev, 0) as sessions_prev,
+           case when ga.sessions > 0 then ga.engaged / ga.sessions end as engaged_rate,
+           ga.eng_sec as avg_engagement_sec,
+           coalesce(ga.leads, 0) as leads, coalesce(dl.downloads, 0) as downloads,
+           coalesce(sc.clicks, 0) as clicks, coalesce(sc.impressions, 0) as impressions, sc.position
+    from pages pg
+    left join ga on ga.page_path = pg.path
+    left join sc on sc.path = pg.path
+    left join dl on dl.content_item_id = pg.item_id
+    order by pg.ours desc, coalesce(ga.sessions, 0) desc, coalesce(sc.impressions, 0) desc`;
+}
+
+export type Point = { key: string; sessions: number; published: number; inRange: boolean };
+
+/**
+ * Sessions per day (ranges up to ~9 weeks) or per week (longer), over `s`. Short ranges (under a
+ * week) are widened to the 14 days ending at the range so the chart still shows a trend; the
+ * selected days are flagged with inRange.
+ */
+export async function sessionsSeries(s: Span): Promise<{ bucket: "day" | "week"; points: Point[] }> {
+  const len = Math.round((Date.parse(s.end) - Date.parse(s.start)) / 86_400_000) + 1;
+  const bucket = len > 63 ? "week" : "day";
+  const from = len < 7 ? new Date(Date.parse(s.end) - 13 * 86_400_000).toISOString().slice(0, 10) : s.start;
+  const step = bucket === "week" ? 7 : 1;
+  const points = await sql<Point[]>`
+    with b as (
+      select g::date as key from generate_series(
+        ${bucket === "week" ? sql`date_trunc('week', ${from}::date)` : sql`${from}::date`}, ${s.end}::date, make_interval(days => ${step})) g
+    )
+    select b.key::text as key,
+           coalesce((select sum(sessions) from metrics_daily m
+                     where m.channel = 'website' and m.page_path = ${SITE_PATH} and m.source_medium = ''
+                       and m.date >= b.key and m.date < b.key + ${step}::int and m.date between ${from} and ${s.end}), 0)::int as sessions,
+           (select count(*) from publications p
+             where p.channel = 'website' and p.status = 'live'
+               and (p.published_at at time zone 'Asia/Tokyo')::date >= b.key
+               and (p.published_at at time zone 'Asia/Tokyo')::date < b.key + ${step}::int)::int as published,
+           (b.key + ${step - 1}::int >= ${s.start}::date) as "inRange"
+    from b order by b.key`;
+  return { bucket, points };
+}

@@ -3,14 +3,15 @@ import { Suspense } from "react";
 import { TrendingKeywords } from "./trending";
 import { env, has } from "@/lib/env";
 import {
-  avgPosition, contentEngine, funnel, groupPerformance, LEAD_WEIGHT, leadsByService, MIN_PIECES,
-  pagePerformance, performancePoints, siteTotals, weeklySessions, type Week,
+  contentEngine, dataEnd, groupPerformance, LEAD_WEIGHT, MIN_PIECES, performancePoints, sessionsSeries,
+  spanAvgPosition, spanFunnel, spanLeadsByService, spanPagePerformance, spanTotals, type Point,
 } from "@/lib/performance";
+import { fmtDay, previousOf, resolveRange, withData } from "@/lib/range";
+import { RangeBar } from "./range-bar";
 import { sql } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-const DAYS = 28;
 const n = (v: number) => v.toLocaleString("en-US");
 const compact = (v: number) => (v >= 10_000 ? `${(v / 1000).toFixed(1)}k` : n(v));
 const pct = (a: number, b: number) => (b > 0 ? (100 * a) / b : 0);
@@ -36,24 +37,31 @@ function Kpi({ label, value, children, highlight }: { label: string; value: stri
   );
 }
 
-export default async function PerformancePage({ searchParams }: { searchParams: Promise<{ scope?: string }> }) {
-  const { scope } = await searchParams;
-  const showAll = scope === "all";
-  const [cur, prev, posNow, posPrev, weeks, fun, byService, engine, pages, perf, services, [{ latest }]] = await Promise.all([
-    siteTotals(DAYS),
-    siteTotals(DAYS, DAYS),
-    avgPosition(DAYS),
-    avgPosition(DAYS, DAYS),
-    weeklySessions(12),
-    funnel(DAYS),
-    leadsByService(DAYS),
+export default async function PerformancePage({ searchParams }: { searchParams: Promise<{ scope?: string; range?: string; from?: string; to?: string }> }) {
+  const q = await searchParams;
+  const showAll = q.scope === "all";
+  const ends = await dataEnd();
+  const range = resolveRange(q, ends.ga);
+  // Only days that have GA4 data count, and they are compared with the same number of days before.
+  const { cur: span, prev: prevSpan, days } = withData(range, ends.ga);
+  const sig = previousOf(range);
+  const rangeQs = (extra: Record<string, string> = {}) =>
+    `?${new URLSearchParams({ ...(range.key !== "28d" ? { range: range.key } : {}), ...(range.key === "custom" ? { from: range.start, to: range.end } : {}), ...extra })}`;
+
+  const [cur, prev, posNow, posPrev, series, byService, engine, pages, perf, services] = await Promise.all([
+    spanTotals(span),
+    spanTotals(prevSpan),
+    spanAvgPosition(span),
+    spanAvgPosition(prevSpan),
+    sessionsSeries({ start: range.start, end: span?.end ?? range.end }),
+    spanLeadsByService(span),
     contentEngine(),
-    pagePerformance(DAYS),
+    spanPagePerformance(span, prevSpan),
     groupPerformance(),
     sql<{ id: string; name_ja: string }[]>`select id, name_ja from services`,
-    sql<{ latest: string | null }[]>`
-      select greatest((select max(date) from metrics_daily), (select max(date) from search_queries_daily))::text as latest`,
   ]);
+  const fun = await spanFunnel(span, cur);
+  const latest = ends.ga;
 
   const gaOn = has(env.googleServiceAccountJson) && has(env.ga4PropertyId);
   const gscOn = has(env.googleServiceAccountJson) && has(env.gscSiteUrl);
@@ -81,10 +89,24 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
         </div>
       )}
 
-      <div>
-        <p className="eyebrow">renesistech.jp · {latest ? `data to ${latest}` : "no data yet"} · vs previous {DAYS} days</p>
-        <h1 className="mt-1.5 text-[28px] font-bold tracking-tight">Performance</h1>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="eyebrow">
+            renesistech.jp · {range.label}
+            {span ? <> · {fmtDay(span.start)} – {fmtDay(span.end)} vs {fmtDay(prevSpan!.start)} – {fmtDay(prevSpan!.end)}</> : null}
+          </p>
+          <h1 className="page-title">Performance</h1>
+        </div>
+        <RangeBar current={range.key} from={range.start} to={range.end} scope={showAll ? "all" : undefined} />
       </div>
+
+      {(!span || span.end < range.end) && (
+        <p className="-mt-2 text-[13px] text-muted">
+          {!span
+            ? <>Google Analytics for {fmtDay(range.start)}{range.start !== range.end ? <> – {fmtDay(range.end)}</> : null} arrives with the next 06:00 JST run (latest data: {fmtDay(latest)}). Trending keywords below are already live.</>
+            : <>Website numbers cover {fmtDay(span.start)} – {fmtDay(span.end)} ({days} days with data so far) and are compared with the {days} days before. The rest arrives with the next 06:00 JST run.</>}
+        </p>
+      )}
 
       <section aria-label="Key numbers" className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
         <Kpi label="Website sessions" value={n(cur.sessions)}><Delta now={cur.sessions} prev={prev.sessions} /></Kpi>
@@ -99,7 +121,7 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
 
       <div className="flex flex-wrap items-stretch gap-5">
         <section aria-label="Weekly sessions" className="card min-w-0 flex-[2_1_520px] px-[22px] py-5">
-          <SessionsChart weeks={weeks} />
+          <SeriesChart points={series.points} bucket={series.bucket} rangeLabel={range.label} total={cur.sessions} prevTotal={prev.sessions} />
         </section>
 
         <section aria-label="Lead funnel" className="card flex min-w-0 flex-[1_1_300px] flex-col gap-3.5 px-[22px] py-5">
@@ -107,7 +129,7 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
             <h2 className="text-base font-semibold">
               {fun.sessions > 0 ? `${pct(fun.leads, fun.sessions).toFixed(1)}% of visits end in a form fill` : "From visit to form fill"}
             </h2>
-            <p className="mt-1 text-[12.5px] text-faint">Last {DAYS} days</p>
+            <p className="mt-1 text-[12.5px] text-faint">{range.label}{span ? ` · ${days} days with data` : ""}</p>
           </div>
           <div className="flex flex-col gap-3">
             <FunnelRow label="Sessions" value={fun.sessions} share={100} base={fun.sessions} />
@@ -126,7 +148,7 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
       </div>
 
       <Suspense fallback={<div className="card h-40 animate-pulse bg-subtle" aria-hidden="true" />}>
-        <TrendingKeywords />
+        <TrendingKeywords span={{ start: range.start, end: range.end, prevStart: sig.start, prevEnd: sig.end }} label={range.label} />
       </Suspense>
 
       <div className="flex flex-wrap items-start gap-5">
@@ -134,8 +156,8 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
           <div className="flex flex-wrap items-baseline justify-between gap-3 px-[22px] pt-[18px] pb-3">
             <h2 className="text-base font-semibold">{showAll ? "All blog pages" : "Content made here"}</h2>
             <div className="flex gap-1.5 text-[13px]">
-              <Link href="/performance" className={`rounded-md px-2.5 py-1 ${!showAll ? "bg-subtle font-semibold" : "text-muted hover:text-ink"}`}>Made here</Link>
-              <Link href="/performance?scope=all" className={`rounded-md px-2.5 py-1 ${showAll ? "bg-subtle font-semibold" : "text-muted hover:text-ink"}`}>All blog pages</Link>
+              <Link prefetch={false} href={`/performance${rangeQs()}`} className={`rounded-md px-2.5 py-1 ${!showAll ? "bg-subtle font-semibold" : "text-muted hover:text-ink"}`}>Made here</Link>
+              <Link prefetch={false} href={`/performance${rangeQs({ scope: "all" })}`} className={`rounded-md px-2.5 py-1 ${showAll ? "bg-subtle font-semibold" : "text-muted hover:text-ink"}`}>All blog pages</Link>
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -249,53 +271,61 @@ function ServiceBar({ name, share, rel, rank }: { name: string; share: number; r
   );
 }
 
-/** Weekly sessions as an area line, with a diamond under each week a piece went live. */
-function SessionsChart({ weeks }: { weeks: Week[] }) {
+/** Sessions per day or week as an area line; a diamond marks a day/week a piece went live. */
+function SeriesChart({ points, bucket, rangeLabel, total, prevTotal }: { points: Point[]; bucket: "day" | "week"; rangeLabel: string; total: number; prevTotal: number }) {
   const W = 780, left = 48, right = 740, top = 30, bottom = 210;
-  const max = Math.max(...weeks.map((w) => w.sessions), 0);
-  const first = weeks.find((w) => w.sessions > 0)?.sessions ?? 0;
-  const last = weeks.at(-1)?.sessions ?? 0;
-  const change = first > 0 ? Math.round((100 * (last - first)) / first) : null;
+  const sel = points.filter((p) => p.inRange);
+  const max = Math.max(...points.map((p) => p.sessions), 0);
+  const last = sel.at(-1)?.sessions ?? points.at(-1)?.sessions ?? 0;
+  // Whole range vs the same-length period before (single days are too noisy to compare).
+  const change = prevTotal > 0 ? Math.round((100 * (total - prevTotal)) / prevTotal) : null;
   const step = max <= 0 ? 1 : Math.pow(10, Math.floor(Math.log10(max)));
   const nice = max <= 0 ? 4 : Math.ceil(max / step / 2) * 2 * step;
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(nice * f));
-  const x = (i: number) => left + (i * (right - left)) / Math.max(1, weeks.length - 1);
+  const x = (i: number) => left + (i * (right - left)) / Math.max(1, points.length - 1);
   const y = (v: number) => bottom - (v / nice) * (bottom - top);
-  const line = weeks.map((w, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(w.sessions).toFixed(1)}`).join(" ");
+  const line = points.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(p.sessions).toFixed(1)}`).join(" ");
   const label = (d: string) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${d}T00:00:00Z`));
+  const every = Math.max(1, Math.ceil(points.length / 8));
+  const firstSel = points.findIndex((p) => p.inRange);
+  const unit = bucket === "week" ? "week" : "day";
 
   return (
     <>
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold">
-            {max === 0 ? "Weekly sessions" : change == null ? "Weekly sessions, last 12 weeks" : `Traffic is ${change >= 0 ? "up" : "down"} ${Math.abs(change)}% in 12 weeks`}
+            {max === 0 ? "Website sessions" : change == null ? `${n(total)} sessions · ${rangeLabel}` : `Traffic is ${change >= 0 ? "up" : "down"} ${Math.abs(change)}% vs the previous period`}
           </h2>
-          <p className="mt-1 text-[12.5px] text-faint">Sessions per week on renesistech.jp · ◆ = a piece went live that week</p>
+          <p className="mt-1 text-[12.5px] text-faint">
+            Sessions per {unit} on renesistech.jp · ◆ = a piece went live{firstSel > 0 ? " · shaded = selected range" : ""}
+          </p>
         </div>
-        {max > 0 && <span className="font-mono text-xs text-faint">{n(first)} → {n(last)} / week</span>}
+        {max > 0 && <span className="font-mono text-xs text-faint">{n(prevTotal)} → {n(total)} sessions</span>}
       </div>
       {max === 0 ? (
         <div className="mt-3.5 flex h-[220px] items-center justify-center rounded-lg border border-dashed border-line-strong px-4 text-center text-[13px] text-faint">
-          No GA4 data yet: the chart draws itself after the first daily run.
+          No GA4 data for this range yet.
         </div>
       ) : (
-        <svg viewBox={`0 0 ${W} 250`} role="img" aria-label={`Weekly sessions from ${first} to ${last} over ${weeks.length} weeks`} className="mt-3.5 block h-auto w-full font-mono">
+        <svg viewBox={`0 0 ${W} 250`} role="img" aria-label={`Sessions per ${unit}, ${rangeLabel}: ${n(total)} in total`} className="mt-3.5 block h-auto w-full font-mono">
+          {firstSel > 0 && <rect x={x(firstSel) - 6} y={top - 10} width={right - x(firstSel) + 12} height={bottom - top + 10} fill="var(--color-accent)" fillOpacity="0.05" rx="6" />}
           <g stroke="#F0F1F4">{ticks.slice(1).map((t) => <line key={t} x1={left} x2={right} y1={y(t)} y2={y(t)} />)}</g>
           <line x1={left} x2={right} y1={bottom} y2={bottom} stroke="#D0D5DD" />
           <g fill="#98A2B3" fontSize="11">
             {ticks.map((t) => <text key={t} x={left - 8} y={y(t) + 4} textAnchor="end">{n(t)}</text>)}
-            {weeks.map((w, i) => (i % 2 === 0 ? <text key={w.week} x={x(i)} y={bottom + 22} textAnchor="middle">{label(w.week)}</text> : null))}
+            {points.map((p, i) => (i % every === 0 ? <text key={p.key} x={x(i)} y={bottom + 22} textAnchor="middle">{label(p.key)}</text> : null))}
           </g>
           <path d={`${line} L${right} ${bottom} L${left} ${bottom} Z`} fill="var(--color-accent)" fillOpacity="0.08" />
           <path d={line} fill="none" stroke="var(--color-accent)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-          <circle cx={x(weeks.length - 1)} cy={y(last)} r="4.5" fill="#FFFFFF" stroke="var(--color-accent)" strokeWidth="2.5" />
-          <text x={x(weeks.length - 1) - 8} y={y(last) - 10} textAnchor="end" fill="#0B1220" fontSize="12" fontWeight="500">{n(last)}</text>
+          {points.length <= 31 && points.map((p, i) => <circle key={p.key} cx={x(i)} cy={y(p.sessions)} r="2.5" fill="var(--color-accent)"><title>{`${label(p.key)}: ${n(p.sessions)} sessions`}</title></circle>)}
+          <circle cx={x(points.length - 1)} cy={y(last)} r="4.5" fill="#FFFFFF" stroke="var(--color-accent)" strokeWidth="2.5" />
+          <text x={x(points.length - 1) - 8} y={y(last) - 10} textAnchor="end" fill="#0B1220" fontSize="12" fontWeight="500">{n(last)}</text>
           <g fill="#0B1220">
-            {weeks.map((w, i) =>
-              w.published > 0 ? (
-                <path key={w.week} d={`M${x(i)} ${bottom - 8} l6 6 l-6 6 l-6 -6 z`}>
-                  <title>{`${w.published} piece(s) went live`}</title>
+            {points.map((p, i) =>
+              p.published > 0 ? (
+                <path key={p.key} d={`M${x(i)} ${bottom - 8} l6 6 l-6 6 l-6 -6 z`}>
+                  <title>{`${p.published} piece(s) went live`}</title>
                 </path>
               ) : null,
             )}

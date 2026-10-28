@@ -12,13 +12,17 @@ export type KeywordTrend = {
   relevant: number; // of `now`, how many Gemini marked relevant
 };
 
-export async function keywordTrends(limit = 20): Promise<KeywordTrend[]> {
+export async function keywordTrends(limit = 20, span?: { start: string; end: string; prevStart: string; prevEnd: string }): Promise<KeywordTrend[]> {
+  // Default: last 7 days vs the 7 before. Dates are JST calendar days.
+  const cur = span ? sql`(r.at at time zone 'Asia/Tokyo')::date between ${span.start} and ${span.end}` : sql`r.at >= now() - interval '7 days'`;
+  const prev = span ? sql`(r.at at time zone 'Asia/Tokyo')::date between ${span.prevStart} and ${span.prevEnd}` : sql`r.at < now() - interval '7 days'`;
+  const window = span ? sql`(coalesce(s.published_at, s.fetched_at) at time zone 'Asia/Tokyo')::date between ${span.prevStart} and ${span.end}` : sql`coalesce(s.published_at, s.fetched_at) >= now() - interval '14 days'`;
   const rows = await sql<KeywordTrend[]>`
     with recent as (
       select s.id, s.status, s.source_id, coalesce(s.published_at, s.fetched_at) as at,
              lower(s.title || ' ' || coalesce(s.summary, '') || ' ' || coalesce(left(s.body, 6000), '')) as text
       from signals s
-      where coalesce(s.published_at, s.fetched_at) >= now() - interval '14 days'
+      where ${window}
     ),
     niche_kw as (
       select distinct on (lower(k)) k as keyword, sc.name_en as niche, c.color
@@ -28,9 +32,9 @@ export async function keywordTrends(limit = 20): Promise<KeywordTrend[]> {
     ),
     niche as (
       select n.keyword, 'niche'::text as kind, n.niche, n.color,
-             count(*) filter (where r.at >= now() - interval '7 days')::int as now,
-             count(*) filter (where r.at < now() - interval '7 days')::int as prev,
-             count(*) filter (where r.at >= now() - interval '7 days' and r.status = 'analyzed')::int as relevant
+             count(*) filter (where ${cur})::int as now,
+             count(*) filter (where ${prev})::int as prev,
+             count(*) filter (where ${cur} and r.status = 'analyzed')::int as relevant
       from niche_kw n
       join recent r on not exists (
         select 1 from unnest(string_to_array(lower(trim(n.keyword)), ' ')) w
@@ -42,9 +46,9 @@ export async function keywordTrends(limit = 20): Promise<KeywordTrend[]> {
     ),
     search as (
       select regexp_replace(src.name, '^Google News:\\s*', '') as keyword, 'search'::text as kind, null::text as niche, null::text as color,
-             count(r.id) filter (where r.at >= now() - interval '7 days')::int as now,
-             count(r.id) filter (where r.at < now() - interval '7 days')::int as prev,
-             count(r.id) filter (where r.at >= now() - interval '7 days' and r.status = 'analyzed')::int as relevant
+             count(r.id) filter (where ${cur})::int as now,
+             count(r.id) filter (where ${prev})::int as prev,
+             count(r.id) filter (where ${cur} and r.status = 'analyzed')::int as relevant
       from sources src left join recent r on r.source_id = src.id
       where src.active and src.category = 'keyword_search'
       group by src.name

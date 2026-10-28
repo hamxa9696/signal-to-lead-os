@@ -2,8 +2,8 @@ import Link from "next/link";
 import { keywordTrends } from "@/lib/trends";
 
 /** Dashboard panel: which tracked keywords are pulling in signals now, and how that is changing. */
-export async function TrendingKeywords() {
-  const rows = await keywordTrends(16);
+export async function TrendingKeywords({ span, label }: { span?: { start: string; end: string; prevStart: string; prevEnd: string }; label?: string }) {
+  const rows = await keywordTrends(16, span);
   const max = Math.max(1, ...rows.map((r) => r.now));
   const rising = rows.filter((r) => r.now > r.prev).length;
   return (
@@ -12,7 +12,7 @@ export async function TrendingKeywords() {
         <div>
           <h2 id="kw" className="text-base font-semibold">Trending keywords</h2>
           <p className="mt-0.5 text-[12.5px] text-faint">
-            Signals each tracked keyword picked up in the last 7 days vs the 7 before · {rising} rising. Keywords come from your{" "}
+            Signals each tracked keyword picked up {label ? <>· {label} vs the same length before</> : "in the last 7 days vs the 7 before"} · {rising} rising. Keywords come from your{" "}
             <Link prefetch={false} href="/categories" className="font-medium text-accent hover:underline">sub-categories</Link> and{" "}
             <Link prefetch={false} href="/sources" className="font-medium text-accent hover:underline">Google News searches</Link>.
           </p>
