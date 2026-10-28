@@ -8,7 +8,14 @@ export default function PageError({ error, reset }: { error: Error & { digest?: 
         <p className="text-sm text-muted">
           Usually the database was busy for a moment. Try again; if it keeps happening, the reference below helps find the cause.
         </p>
-        {error.digest && <p className="font-mono text-xs text-faint">Ref: {error.digest}</p>}
+        {(error.digest || error.message) && (
+          <p className="font-mono text-xs break-words text-faint">
+            {error.digest ? `Ref: ${error.digest}` : `Browser error: ${error.message.slice(0, 200)}`}
+          </p>
+        )}
+        <p className="text-[13px] text-muted">
+          If your browser is translating this page (e.g. Chrome Translate), turn that off and use the app&apos;s own English switch at the bottom of the sidebar.
+        </p>
         <div>
           <button onClick={reset} className="btn-primary">Try again</button>
         </div>

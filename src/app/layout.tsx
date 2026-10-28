@@ -13,11 +13,14 @@ const jp = Noto_Sans_JP({ weight: ["400", "500", "700"], subsets: ["latin"], var
 export const metadata: Metadata = {
   title: "Signal-to-Lead OS",
   description: "Renesis content + inbound pipeline for the Japanese market.",
+  // Browser auto-translation (e.g. Chrome Translate) rewrites the page behind React's back and makes
+  // navigation crash. The app has its own 日本語 / English switch instead.
+  other: { google: "notranslate" },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${mono.variable} ${jp.variable}`}>
+    <html lang="en" translate="no" className={`${inter.variable} ${mono.variable} ${jp.variable}`}>
       <body className="min-h-screen antialiased">
         <div className="flex min-h-screen flex-wrap">
           <Sidebar signOut={authConfigured() ? signOut : null} />
