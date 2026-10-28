@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     const supabase = await supabaseServer();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      dest.pathname = "/";
+      dest.pathname = "/performance";
       return NextResponse.redirect(dest);
     }
   }
