@@ -13,7 +13,7 @@ const MAX_PER_RUN = 600;
 const WINDOW_DAYS = 45;
 
 const Out = z.preprocess((v) => (Array.isArray(v) ? { items: v } : v), z.object({
-  items: z.array(z.object({ i: z.number().int(), slug: z.string().nullable().catch(null) })),
+  items: z.array(z.object({ i: z.number().int(), slug: z.string().nullable().catch(null), why: z.string().catch("") })),
 }));
 
 type Row = { id: string; title: string; buyer_problem: string | null; angle: string | null; service_category: string | null };
@@ -46,24 +46,30 @@ export const sortSignals: Job = {
             "Sort Japanese business news into Renesis Tech Japan's market sub-categories.",
             "For EACH item pick the single best sub-category slug; use a category slug if only the category fits;",
             "null if it fits nothing. Judge by the business use-case and industry, not by passing mentions.",
+            "why: ENGLISH ONLY (never Japanese), max 140 characters — what in the item puts it in that sub-category (use case, industry,",
+            "company type or keyword), or why nothing fits.",
             "",
             brief,
             "",
             "ITEMS:",
             ...batch.map((r, i) => `[${i}] ${r.title}${r.buyer_problem ? ` | 課題: ${r.buyer_problem}` : ""}${r.angle ? ` | 切り口: ${r.angle}` : ""}`),
             "",
-            'Return ONLY JSON: {"items":[{"i":0,"slug":null}]} with one entry per item.',
+            'Return ONLY JSON: {"items":[{"i":0,"slug":null,"why":""}]} with one entry per item.',
           ].join("\n"),
           Out,
           { temperature: 0.1, prefer: "gemini-3.5-flash-lite" },
         );
         const bySlug = new Map(items.map((x) => [x.i, x.slug]));
+        const byWhy = new Map(items.map((x) => [x.i, x.why]));
         for (const [i, r] of batch.entries()) {
           if (!bySlug.has(i)) continue; // retried next run
           const hit = resolveSlug(taxonomy, bySlug.get(i));
           const category = hit.category_id ?? r.service_category; // fall back to the service's category
           hit.subcategory_id || category ? sorted++ : unsorted++;
-          await sql`update signals set category_id = ${category}, subcategory_id = ${hit.subcategory_id}, sorted_at = now() where id = ${r.id}`;
+          await sql`
+            update signals set category_id = ${category}, subcategory_id = ${hit.subcategory_id}, sorted_at = now(),
+              analysis = coalesce(analysis, '{}'::jsonb) || ${sql.json({ sort_why: byWhy.get(i) ?? "", sort_by: hit.subcategory_id ? "subcategory" : category ? (hit.category_id ? "category" : "service") : "none" })}
+            where id = ${r.id}`;
         }
       } catch (err) {
         failed.push((err as Error).message.slice(0, 200));

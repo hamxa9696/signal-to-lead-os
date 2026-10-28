@@ -20,6 +20,7 @@ const Result = z.preprocess((v) => (Array.isArray(v) ? { items: v } : v), z.obje
       relevance: z.number().min(0).max(1),
       service_slug: z.string().nullable().catch(null),
       subcategory_slug: z.string().nullable().catch(null),
+      why: z.string().catch(""),
       buyer_problem: z.string().catch(""),
       angle: z.string().catch(""),
     }),
@@ -43,6 +44,8 @@ function prompt(brief: string, rows: Row[]): string {
     "- service_slug: the single best matching slug from SERVICES, or null.",
     "- subcategory_slug: the single best matching slug from SUB-CATEGORIES (a category slug if only the",
     "  category fits), or null.",
+    "- why: ENGLISH ONLY (never Japanese), max 160 characters — the concrete reason for this relevance score: which persona or",
+    "  industry it concerns and what makes it useful (or not) as a content hook.",
     "- buyer_problem: in Japanese, max 60 characters — the business problem implied for a Japanese company.",
     "- angle: in Japanese, max 80 characters — the article angle Renesis could write (not a news rewrite).",
     "",
@@ -51,7 +54,7 @@ function prompt(brief: string, rows: Row[]): string {
     "ITEMS:",
     ...rows.map((r, i) => `[${i}] (${r.source}) ${r.title}${r.summary ? ` — ${r.summary.slice(0, 200)}` : ""}`),
     "",
-    'Return ONLY JSON: {"items":[{"i":0,"relevance":0.0,"service_slug":null,"buyer_problem":"","angle":""}, ...]} with one entry per item.',
+    'Return ONLY JSON: {"items":[{"i":0,"relevance":0.0,"service_slug":null,"subcategory_slug":null,"why":"","buyer_problem":"","angle":""}, ...]} with one entry per item.',
   ].join("\n");
 }
 
@@ -116,7 +119,7 @@ export const analyzeSignals: Job = {
             subcategory_id = ${resolveSlug(taxonomy, it.subcategory_slug).subcategory_id},
             sorted_at = now(),
             buyer_problem = ${it.buyer_problem || null},
-            analysis = ${sql.json({ angle: it.angle, service_slug: it.service_slug, subcategory_slug: it.subcategory_slug })},
+            analysis = ${sql.json({ angle: it.angle, service_slug: it.service_slug, subcategory_slug: it.subcategory_slug, why: it.why })},
             analyzed_at = now()
           where id = ${row.id}`;
       }

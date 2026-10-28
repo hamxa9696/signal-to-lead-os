@@ -68,12 +68,24 @@ function skip(node: Text): boolean {
   return true; // outside <main>
 }
 
+/**
+ * True once React has hydrated this element. Changing text React has not hydrated yet causes a
+ * hydration mismatch, after which React throws the page away and rebuilds it (clicks get lost).
+ */
+const hydrated = (el: Element | null) => !!el && Object.keys(el).some((k) => k.startsWith("__reactFiber$"));
+let waitingForHydration = false;
+
 function collect(root: Node): Text[] {
   const out: Text[] = [];
+  waitingForHydration = false;
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   for (let n = walker.nextNode() as Text | null; n; n = walker.nextNode() as Text | null) {
     const v = n.nodeValue ?? "";
     if (v.length > MAX_TEXT || !JA.test(v) || applied.get(n) === v || skip(n)) continue;
+    if (!hydrated(n.parentElement)) {
+      waitingForHydration = true; // try again shortly
+      continue;
+    }
     out.push(n);
   }
   return out;
@@ -147,6 +159,11 @@ export function Translator() {
           setBusy((b) => b - 1);
         }
       };
+      // Parts of the page not hydrated yet: look again shortly (hydration changes no DOM, so no mutation fires).
+      if (waitingForHydration && !stopped) {
+        clearTimeout(timer);
+        timer = setTimeout(run, 300);
+      }
       if (chunks.length) await send(chunks[0]);
       for (let i = 1; i < chunks.length && !stopped; i += PARALLEL) await Promise.all(chunks.slice(i, i + PARALLEL).map(send));
     };
