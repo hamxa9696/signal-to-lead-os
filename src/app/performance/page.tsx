@@ -6,7 +6,7 @@ import {
   contentEngine, dataEnd, groupPerformance, LEAD_WEIGHT, MIN_PIECES, performancePoints, sessionsSeries,
   spanAvgPosition, spanFunnel, spanLeadsByService, spanPagePerformance, spanTotals, type Point,
 } from "@/lib/performance";
-import { fmtDay, previousOf, resolveRange, withData } from "@/lib/range";
+import { fmtDay, resolveRange, withData } from "@/lib/range";
 import { RangeBar } from "./range-bar";
 import { SessionsChart } from "./chart";
 import { sql } from "@/lib/db";
@@ -32,20 +32,19 @@ function Kpi({ label, value, children, highlight }: { label: string; value: stri
   return (
     <div className={`card px-[18px] py-4 ${highlight ? "border-accent shadow-[0_0_0_3px_var(--color-accent-soft)]" : ""}`}>
       <p className={`text-[12.5px] ${highlight ? "font-semibold text-accent" : "text-faint"}`}>{label}</p>
-      <p className="mt-2 mb-0.5 font-mono text-[26px] tracking-tight">{value}</p>
+      <p translate="no" className="notranslate mt-2 mb-0.5 font-mono text-[26px] tracking-tight">{value}</p>
       {children}
     </div>
   );
 }
 
-export default async function PerformancePage({ searchParams }: { searchParams: Promise<{ scope?: string; range?: string; from?: string; to?: string; kw?: string }> }) {
+export default async function PerformancePage({ searchParams }: { searchParams: Promise<{ scope?: string; range?: string; from?: string; to?: string; kw?: string; kwp?: string }> }) {
   const q = await searchParams;
   const showAll = q.scope === "all";
   const ends = await dataEnd();
   const range = resolveRange(q, ends.ga);
   // Only days that have GA4 data count, and they are compared with the same number of days before.
   const { cur: span, prev: prevSpan, days } = withData(range, ends.ga);
-  const sig = previousOf(range);
   const rangeQs = (extra: Record<string, string> = {}) =>
     `?${new URLSearchParams({ ...(range.key !== "28d" ? { range: range.key } : {}), ...(range.key === "custom" ? { from: range.start, to: range.end } : {}), ...extra })}`;
 
@@ -150,8 +149,7 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
 
       <Suspense fallback={<div className="card h-40 animate-pulse bg-subtle" aria-hidden="true" />}>
         <TrendingKeywords
-          span={{ start: range.start, end: range.end, prevStart: sig.start, prevEnd: sig.end }}
-          label={range.label}
+          period={(["24h", "7d", "30d", "90d"] as const).find((p) => p === q.kwp) ?? "7d"}
           cat={q.kw && /^[a-z0-9-]{1,40}$/.test(q.kw) ? q.kw : undefined}
           baseQs={{ ...(range.key !== "28d" ? { range: range.key } : {}), ...(range.key === "custom" ? { from: range.start, to: range.end } : {}), ...(showAll ? { scope: "all" } : {}) }}
         />
