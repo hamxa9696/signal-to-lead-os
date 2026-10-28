@@ -6,6 +6,7 @@ import { setTopicStatus } from "../actions";
 import type { KeywordPlan } from "@/lib/keywords";
 import { KeywordButton } from "./keyword-button";
 import { TopicTabs } from "./tabs";
+import { HoverCard } from "../hover-card";
 
 export const dynamic = "force-dynamic";
 
@@ -215,7 +216,7 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
                       {KIND(t)} · <span lang="ja">{t.primary_keyword}</span>
                     </p>
                   </div>
-                  <Split b={t.score_breakdown} strong={lead} />
+                  <Split b={t.score_breakdown} strong={lead} signals={t.signals.length} total={score} />
                   <span lang="ja" className="text-body">{t.service?.replace(/サービス$/, "") ?? "—"}</span>
                   <div>
                     {s === "proposed" ? (
@@ -261,14 +262,53 @@ function ScoreRing({ value, strong }: { value: number; strong: boolean }) {
   );
 }
 
-function Split({ b }: { b: Breakdown | null; strong?: boolean }) {
+/** Topic-specific reading of each score part, for the hover card. */
+function partNote(key: string, b: Breakdown, signals: number): string {
+  switch (key) {
+    case "demand":
+      return b.demand_source === "search_console"
+        ? `${b.gsc_impressions_28d.toLocaleString("en-US")} Google impressions for the keyword in 28 days (Search Console).`
+        : `Gemini's estimate of search demand (no Search Console data yet), so capped at 20.`;
+    case "fit":
+      return `Gemini rated the link to a Renesis service ${Math.round(b.fit / 3)}/10.`;
+    case "freshness":
+      return signals === 0
+        ? "Evergreen topic with no news behind it: fixed 10."
+        : b.freshness >= 20 ? "Newest news behind it is 3 days old or less." : b.freshness >= 15 ? "Newest news behind it is up to a week old." : b.freshness >= 10 ? "Newest news behind it is up to two weeks old." : "The news behind it is older than two weeks.";
+    case "performance":
+      return b.performance_note || (b.performance === 5 ? "Average, or not enough past pieces yet to compare." : "Based on how similar past pieces performed.");
+    default:
+      return "";
+  }
+}
+
+function Split({ b, signals = 0, total }: { b: Breakdown | null; strong?: boolean; signals?: number; total?: number }) {
   if (!b) return <span className="text-xs text-faint">—</span>;
   const values: Record<string, number> = { demand: b.demand, fit: b.fit, freshness: b.freshness, performance: b.performance };
+  const sum = total ?? PARTS.reduce((a, p) => a + values[p.key], 0);
+  const weakest = [...PARTS].sort((x, y) => values[x.key] / x.max - values[y.key] / y.max)[0];
+  const card = (
+    <>
+      <p className="font-semibold">Score {sum} / 100, built from four parts</p>
+      <ul className="mt-2 flex flex-col gap-2">
+        {PARTS.map((p) => (
+          <li key={p.key}>
+            <p className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-1.5 font-semibold"><span className="h-2 w-2 rounded-sm" style={{ background: p.color }} />{p.short}</span>
+              <span className="font-mono">{values[p.key]} / {p.max}</span>
+            </p>
+            <p className="text-white/75">{p.what} {partNote(p.key, b, signals)}</p>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 border-t border-white/15 pt-2 text-white/75">Weakest part: <b className="text-white">{weakest.short}</b>. Full rules are under &ldquo;How the score is built&rdquo; above.</p>
+    </>
+  );
   return (
-    <div role="img" aria-label={PARTS.map((p) => `${p.short} ${values[p.key]} of ${p.max}`).join(", ")}>
+    <HoverCard label={PARTS.map((p) => `${p.short} ${values[p.key]} of ${p.max}`).join(", ")} card={card} width={340}>
       <div className="flex h-2 gap-[3px]">
         {PARTS.map((p) => (
-          <span key={p.key} title={`${p.short}: ${values[p.key]} / ${p.max}`} className="w-10 overflow-hidden rounded-sm" style={{ background: `${p.color}26` }}>
+          <span key={p.key} className="w-10 overflow-hidden rounded-sm" style={{ background: `${p.color}26` }}>
             <span className="block h-full" style={{ width: `${(100 * values[p.key]) / p.max}%`, background: p.color }} />
           </span>
         ))}
@@ -281,7 +321,7 @@ function Split({ b }: { b: Breakdown | null; strong?: boolean }) {
           </span>
         ))}
       </div>
-    </div>
+    </HoverCard>
   );
 }
 
