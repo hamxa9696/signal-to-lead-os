@@ -47,14 +47,15 @@ const isTimeout = (e: unknown) => e instanceof Error && (e.name === "TimeoutErro
 export async function generateJson<S extends z.ZodTypeAny>(
   prompt: string,
   schema: S,
-  opts: { temperature?: number; rounds?: number } = {},
+  opts: { temperature?: number; rounds?: number; prefer?: string } = {},
 ): Promise<z.infer<S>> {
   if (!has(env.geminiApiKey)) throw new Error("GEMINI_API_KEY not set");
   const rounds = opts.rounds ?? 3;
   const errors: string[] = [];
 
   for (let round = 0; round < rounds; round++) {
-    for (const model of GEMINI_MODELS) {
+    const models = opts.prefer ? [opts.prefer, ...GEMINI_MODELS.filter((m) => m !== opts.prefer)] : GEMINI_MODELS;
+    for (const model of models) {
       try {
         const raw = await callModel(model, prompt, opts.temperature ?? 0.2);
         const parsed = schema.safeParse(JSON.parse(raw));

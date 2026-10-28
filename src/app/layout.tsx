@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter_Tight, JetBrains_Mono, Noto_Sans_JP } from "next/font/google";
 import { authConfigured } from "@/lib/auth";
 import { Sidebar } from "./sidebar";
+import { Translator } from "./translator";
 import { signOut } from "./login/actions";
 import "./globals.css";
 
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <div className="flex min-h-screen flex-wrap">
           <Sidebar signOut={authConfigured() ? signOut : null} />
           <div className="min-w-0 flex-[999_1_640px]">{children}</div>
+          <Translator />
         </div>
       </body>
     </html>

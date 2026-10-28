@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { LangSwitch } from "./translator";
 import { usePathname } from "next/navigation";
 
 const ICONS: Record<string, React.ReactNode> = {
@@ -51,6 +52,10 @@ export function Sidebar({ signOut }: { signOut: (() => Promise<void>) | null }) 
           <span className="block text-[11px] text-faint">Renesis Tech Japan</span>
         </span>
       </Link>
+      <div className="px-1">
+        <p className="eyebrow mb-1.5 ml-2 hidden md:block">Content language</p>
+        <LangSwitch />
+      </div>
       <nav aria-label="Main" className="flex flex-wrap gap-0.5 md:flex-col">
         <p className="eyebrow mb-1.5 ml-3 hidden md:block">Workspace</p>
         {LINKS.map((l) => {
