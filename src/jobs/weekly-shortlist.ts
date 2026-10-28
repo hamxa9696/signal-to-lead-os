@@ -61,6 +61,7 @@ function buildPrompt(p: {
   factSheet: string;
   worked: string[];
   results?: string;
+  trending?: string[];
 }): string {
   return [
     "You are the content strategist for Renesis Tech Japan (renesistech.jp), an AI-native engineering firm",
@@ -107,6 +108,7 @@ function buildPrompt(p: {
       : ["- (none yet — Search Console not connected or no data)"]),
     "",
     p.results ? `${p.results}\n` : "",
+    p.trending?.length ? `LIKELY TO TREND IN THE NEXT 7 DAYS (forecast from signals; the fast take and at least one evergreen topic should use these):\n${p.trending.join("\n")}\n` : "",
     "WHAT WORKED ON renesistech.jp (last 28 days; do more of this, without duplicating it):",
     ...(p.worked.length ? p.worked.map((w) => `- ${w}`) : ["- (no performance data yet)"]),
     "",
@@ -200,7 +202,14 @@ export function makeWeeklyShortlist(opts: { force?: boolean } = {}): Job {
       const magnetFormat = [...new Set(recentFormats)].join(", ");
 
       const [fact] = await sql<{ content: string }[]>`select content from knowledge_docs where kind = 'fact_sheet'`;
-      const [perf, worked, results] = await Promise.all([groupPerformance(), whatWorked(), resultsSummary().catch(() => "")]);
+      const [perf, worked, results, trendRows] = await Promise.all([
+        groupPerformance(), whatWorked(), resultsSummary().catch(() => ""),
+        sql<{ term: string; direction: string; predicted: number; last_7d: number; drivers: string[] }[]>`
+          select term, direction, predicted, last_7d, drivers from trend_forecasts
+          where window_start = (select max(window_start) from trend_forecasts) and direction in ('rising', 'emerging')
+          order by p_rise desc limit 12`.catch(() => []),
+      ]);
+      const trending = trendRows.map((r) => `- ${r.term} (${r.direction}: ${r.last_7d} → ~${r.predicted} articles; ${(r.drivers ?? [])[0] ?? ""})`);
 
       const { topics } = await generateJson(
         buildPrompt({
@@ -212,6 +221,7 @@ export function makeWeeklyShortlist(opts: { force?: boolean } = {}): Job {
           factSheet: fact?.content ?? "",
           worked,
           results,
+          trending,
         }),
         Result,
         { temperature: 0.5 },

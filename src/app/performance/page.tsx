@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { TrendingKeywords } from "./trending";
 import { WhatWorks } from "./what-works";
+import { ForecastCard } from "./forecast-card";
 import { env, has } from "@/lib/env";
 import {
   contentEngine, dataEnd, groupPerformance, LEAD_WEIGHT, MIN_PIECES, performancePoints, sessionsSeries,
@@ -147,6 +148,10 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
           </p>
         </section>
       </div>
+
+      <Suspense fallback={<div className="card h-28 animate-pulse bg-subtle" aria-hidden="true" />}>
+        <ForecastCard />
+      </Suspense>
 
       <Suspense fallback={<div className="card h-40 animate-pulse bg-subtle" aria-hidden="true" />}>
         <TrendingKeywords

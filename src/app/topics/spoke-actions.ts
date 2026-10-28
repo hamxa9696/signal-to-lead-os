@@ -14,3 +14,18 @@ export async function markSpoke(topicId: string, channel: string, posted: boolea
   revalidatePath("/topics/calendar");
   return { ok: true };
 }
+
+/** Drag & drop on the calendar: move a hub (channel = null) or a spoke to another day. */
+export async function moveItem(topicId: string, channel: string | null, date: string): Promise<{ ok: boolean }> {
+  if (!/^[0-9a-f-]{36}$/.test(topicId) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false };
+  if (channel === null) {
+    await sql`update topics set planned_date = ${date} where id = ${topicId}`;
+  } else {
+    if (!(channel in CHANNELS)) return { ok: false };
+    await sql`
+      insert into topic_spokes (topic_id, channel, planned_date) values (${topicId}, ${channel}, ${date})
+      on conflict (topic_id, channel) do update set planned_date = excluded.planned_date`;
+  }
+  revalidatePath("/topics/calendar");
+  return { ok: true };
+}
