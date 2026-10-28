@@ -34,7 +34,7 @@ const LINKS = [
 
 export function Sidebar({ signOut }: { signOut: (() => Promise<void>) | null }) {
   const path = usePathname();
-  if (path.startsWith("/login") || path.startsWith("/auth") || path.startsWith("/reset-password")) return null;
+  if (path.startsWith("/login") || path.startsWith("/auth")) return null;
   return (
     <aside className="flex w-full flex-col gap-6 border-b border-line bg-sidebar px-4 py-5 md:sticky md:top-0 md:h-screen md:w-[248px] md:flex-none md:border-r md:border-b-0">
       <Link href="/performance" className="flex items-center gap-2.5 px-2">

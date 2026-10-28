@@ -17,9 +17,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           </span>
         </div>
         <h1 className="mt-7 text-[22px] font-bold tracking-tight">Sign in</h1>
-        <p className="mt-1 mb-6 text-sm text-muted">Sign in with your email and password. Access is limited to approved addresses.</p>
+        <p className="mt-1 mb-6 text-sm text-muted">Enter your approved email address.</p>
         {error === "not_allowed" && <p className="mb-4 rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn">That account doesn't have access.</p>}
-        {error === "link" && <p className="mb-4 rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn">That confirmation link was invalid or expired. Sign in, or create your password again.</p>}
         <LoginForm />
       </div>
     </main>
