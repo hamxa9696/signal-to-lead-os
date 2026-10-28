@@ -18,4 +18,4 @@ export function isAllowed(email: string | null | undefined): boolean {
 }
 
 /** Paths reachable without a session. */
-export const PUBLIC_PATHS = ["/login", "/auth/callback"];
+export const PUBLIC_PATHS = ["/login", "/auth/callback", "/auth/recover"];
