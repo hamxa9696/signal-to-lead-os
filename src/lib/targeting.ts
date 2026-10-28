@@ -2,7 +2,7 @@
 // Edited on /audience; turned into a prompt block for Gemini and the prompt packs.
 import { sql } from "./db";
 
-export type Service = { id: string; slug: string; name_ja: string; name_en: string; description: string | null; focus: boolean; active: boolean };
+export type Service = { id: string; slug: string; name_ja: string; name_en: string; description: string | null; focus: boolean; active: boolean; category_id: string | null };
 export type Industry = { id: string; name_ja: string; name_en: string; priority: "high" | "normal" | "low"; notes: string | null; active: boolean };
 export type Persona = {
   id: string;
@@ -20,7 +20,7 @@ export const TIER_LABEL: Record<Persona["tier"], string> = { pcp: "Primary", ric
 
 export async function loadTargeting(): Promise<Targeting> {
   const [services, industries, personas] = await Promise.all([
-    sql<Service[]>`select id, slug, name_ja, name_en, description, focus, active from services order by focus desc, name_en`,
+    sql<Service[]>`select id, slug, name_ja, name_en, description, focus, active, category_id from services order by focus desc, name_en`,
     sql<Industry[]>`select id, name_ja, name_en, priority, notes, active from industries
                     order by case priority when 'high' then 0 when 'normal' then 1 else 2 end, name_ja`,
     sql<Persona[]>`select id, tier, name, description, pains, industries, service_ids, active from icps

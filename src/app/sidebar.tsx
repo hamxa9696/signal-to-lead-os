@@ -15,6 +15,7 @@ const ICONS: Record<string, React.ReactNode> = {
   review: <path d="M4 4v6h6M20 20v-6h-6M5 15a7 7 0 0 0 12 2M19 9A7 7 0 0 0 7 7" />,
   delivery: <path d="M4 6l8 7 8-7M4 6h16v12H4z" />,
   audience: <path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21v-1a6 6 0 0 1 12 0v1M16 3.5a4 4 0 0 1 0 7.5M22 21v-1a6 6 0 0 0-4-5.6" />,
+  categories: <path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" />,
   sources: <path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16M5 19h.01" />,
   knowledge: <path d="M5 4h11l3 3v13H5zM9 10h6M9 14h6" />,
   status: (
@@ -38,6 +39,7 @@ const GROUPS = [
     label: "Inputs",
     links: [
       { href: "/signals", label: "Signals", icon: "signals" },
+      { href: "/categories", label: "Categories", icon: "categories" },
       { href: "/sources", label: "Sources", icon: "sources" },
       { href: "/audience", label: "Audience", icon: "audience" },
       { href: "/knowledge", label: "Knowledge", icon: "knowledge" },

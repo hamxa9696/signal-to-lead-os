@@ -38,7 +38,7 @@ const Result = z.preprocess(
   z.object({ topics: z.array(TopicOut).min(1) }),
 );
 
-type SignalRow = { id: string; title: string; buyer_problem: string | null; angle: string | null; service: string | null; published_at: Date | null };
+type SignalRow = { id: string; title: string; buyer_problem: string | null; angle: string | null; service: string | null; niche: string | null; published_at: Date | null };
 type QueryRow = { query: string; impressions: number; clicks: number; position: number };
 
 function nextMagnetFormat(recent: string[]): (typeof MAGNET_FORMATS)[number] {
@@ -67,6 +67,7 @@ function buildPrompt(p: {
     "- Prioritise AI and software services. At most 1 of the 6 topics may be blockchain/Web3 — the blog",
     "  already covers that heavily.",
     "- Do NOT duplicate EXISTING CONTENT.",
+    "- NEWS SIGNALS show their market niche in {braces}; spread topics across niches rather than piling into one.",
     `- The lead magnet must use format "${p.magnetFormat}" and be something a Japanese manager would trade`,
     "  an email address for (practical, specific, reusable). Its outline lists the sections/items it contains.",
     "  Do not put an item count in a lead-magnet title (checklists have 25–40 items, decided when written).",
@@ -98,7 +99,7 @@ function buildPrompt(p: {
     "",
     "NEWS SIGNALS (already filtered for relevance):",
     ...(p.signals.length
-      ? p.signals.map((s, i) => `[${i}] ${s.title}${s.buyer_problem ? ` | 課題: ${s.buyer_problem}` : ""}${s.angle ? ` | 切り口: ${s.angle}` : ""}`)
+      ? p.signals.map((s, i) => `[${i}]${s.niche ? ` {${s.niche}}` : ""} ${s.title}${s.buyer_problem ? ` | 課題: ${s.buyer_problem}` : ""}${s.angle ? ` | 切り口: ${s.angle}` : ""}`)
       : ["- (none)"]),
     "",
     "EXISTING CONTENT (do not duplicate):",
@@ -151,8 +152,9 @@ export function makeWeeklyShortlist(opts: { force?: boolean } = {}): Job {
 
       const signals = await sql<SignalRow[]>`
         select s.id, s.title, s.buyer_problem, s.analysis->>'angle' as angle,
-               sv.slug as service, s.published_at
+               sv.slug as service, s.published_at, coalesce(sc.name_en, c.name_en) as niche
         from signals s left join services sv on sv.id = s.service_id
+        left join subcategories sc on sc.id = s.subcategory_id left join categories c on c.id = s.category_id
         where s.status = 'analyzed' and s.relevance >= 0.5
           and coalesce(s.published_at, s.fetched_at) >= now() - interval '14 days'
           and not exists (select 1 from topic_signals ts where ts.signal_id = s.id)

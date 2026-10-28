@@ -4,6 +4,7 @@ import { sql } from "@/lib/db";
 import { env, has } from "@/lib/env";
 import { generateJson } from "@/lib/gemini";
 import { loadTargeting, targetingBrief } from "@/lib/targeting";
+import { loadTaxonomy, resolveSlug, taxonomyBrief } from "@/lib/taxonomy";
 import type { Job } from "./types";
 
 const BATCH = 40; // items per Gemini call (titles + short summaries)
@@ -18,6 +19,7 @@ const Result = z.preprocess((v) => (Array.isArray(v) ? { items: v } : v), z.obje
       i: z.number().int(),
       relevance: z.number().min(0).max(1),
       service_slug: z.string().nullable().catch(null),
+      subcategory_slug: z.string().nullable().catch(null),
       buyer_problem: z.string().catch(""),
       angle: z.string().catch(""),
     }),
@@ -27,6 +29,7 @@ const Result = z.preprocess((v) => (Array.isArray(v) ? { items: v } : v), z.obje
 type Row = { id: string; title: string; summary: string | null; source: string };
 
 function prompt(brief: string, rows: Row[]): string {
+  // brief = audience + taxonomy blocks
   return [
     "You are a B2B content strategist for Renesis Tech Japan, an AI-native engineering firm selling to",
     "Japanese companies. Its services, target industries and reader personas are below.",
@@ -38,6 +41,8 @@ function prompt(brief: string, rows: Row[]): string {
     "  shortage, regulation, new tech they must evaluate). Low = consumer gadgets, earnings, personnel",
     "  moves, events, pure vendor marketing, unrelated science, or industries we do not target.",
     "- service_slug: the single best matching slug from SERVICES, or null.",
+    "- subcategory_slug: the single best matching slug from SUB-CATEGORIES (a category slug if only the",
+    "  category fits), or null.",
     "- buyer_problem: in Japanese, max 60 characters — the business problem implied for a Japanese company.",
     "- angle: in Japanese, max 80 characters — the article angle Renesis could write (not a news rewrite).",
     "",
@@ -65,7 +70,9 @@ export const analyzeSignals: Job = {
       returning id`;
 
     const targeting = await loadTargeting();
-    const brief = targetingBrief(targeting);
+    const taxonomy = await loadTaxonomy();
+    const personaName = (id: string) => targeting.personas.find((p) => p.id === id)?.name;
+    const brief = `${targetingBrief(targeting)}\n\n${taxonomyBrief(taxonomy, personaName)}`;
     const serviceId = new Map(targeting.services.filter((s) => s.active).map((s) => [s.slug, s.id]));
 
     const pending = await sql<Row[]>`
@@ -105,8 +112,11 @@ export const analyzeSignals: Job = {
             status = ${keep ? "analyzed" : "ignored"},
             relevance = ${it.relevance},
             service_id = ${(it.service_slug && serviceId.get(it.service_slug)) || null},
+            category_id = ${resolveSlug(taxonomy, it.subcategory_slug).category_id},
+            subcategory_id = ${resolveSlug(taxonomy, it.subcategory_slug).subcategory_id},
+            sorted_at = now(),
             buyer_problem = ${it.buyer_problem || null},
-            analysis = ${sql.json({ angle: it.angle, service_slug: it.service_slug })},
+            analysis = ${sql.json({ angle: it.angle, service_slug: it.service_slug, subcategory_slug: it.subcategory_slug })},
             analyzed_at = now()
           where id = ${row.id}`;
       }
