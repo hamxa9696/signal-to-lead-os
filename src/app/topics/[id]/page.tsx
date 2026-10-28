@@ -89,6 +89,11 @@ export default async function TopicWorkspace({ params }: { params: Promise<{ id:
           </p>
           <h1 lang="ja" className="mt-1 text-xl font-semibold">{item?.title ?? topic.title_ja}</h1>
           <p lang="ja" className="mt-1 text-sm text-faint">{topic.primary_keyword} · {topic.secondary_keywords.join("、")}</p>
+          {topic.persona && (
+            <p className="mt-1 text-sm text-muted">
+              Written for <span lang="ja" className="font-medium text-ink">{topic.persona.name}</span>
+            </p>
+          )}
         </div>
         {topic.status === "proposed" && (
           <form action={setTopicStatus}>

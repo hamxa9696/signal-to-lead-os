@@ -5,6 +5,7 @@ import { sql } from "@/lib/db";
 import { env, has } from "@/lib/env";
 import { generateJson } from "@/lib/gemini";
 import { weekOf } from "@/lib/week";
+import { activePersonas, loadTargeting, targetingBrief } from "@/lib/targeting";
 import { groupPerformance, performancePoints, whatWorked } from "@/lib/performance";
 import type { Job } from "./types";
 
@@ -23,6 +24,7 @@ const TopicOut = z.object({
   secondary_keywords: z.array(z.string()).catch([]),
   search_intent: z.enum(["informational", "commercial", "transactional", "navigational"]).catch("informational"),
   service_slug: z.string().nullable().catch(null),
+  persona_ref: z.number().int().nullable().catch(null),
   fit: z.number().min(0).max(10).catch(5),
   demand_estimate: z.number().min(0).max(10).catch(3),
   evergreen: z.boolean().catch(true),
@@ -44,7 +46,7 @@ function nextMagnetFormat(recent: string[]): (typeof MAGNET_FORMATS)[number] {
 }
 
 function buildPrompt(p: {
-  services: { slug: string; name_ja: string }[];
+  brief: string;
   signals: SignalRow[];
   queries: QueryRow[];
   existing: string[];
@@ -70,7 +72,11 @@ function buildPrompt(p: {
     "  Do not put an item count in a lead-magnet title (checklists have 25–40 items, decided when written).",
     "- primary_keyword: one Japanese search query (2–5 words). secondary_keywords: 3–6 related queries.",
     "- When SEARCH CONSOLE QUERIES are given, prefer topics that can win those queries.",
-    "- fit 0–10: how directly the topic leads a reader toward a Renesis service.",
+    "- persona_ref: the [index] of the ONE persona this topic is written for. Spread the 6 topics across",
+    "  personas, weighted toward Primary ones; use their 課題 and 業界 to choose angles and examples.",
+    "- Favour services marked ★ and high-priority industries; skip industries not listed unless the topic",
+    "  is industry-neutral.",
+    "- fit 0–10: how directly the topic serves the chosen persona's problem AND leads toward a Renesis service.",
     "- demand_estimate 0–10: your estimate of Japanese search demand for primary_keyword.",
     "- signal_refs: indexes of NEWS SIGNALS this topic draws on ([] if none).",
     "- title_ja: natural Japanese title, ≤ 40 characters, no clickbait. title_en: English gloss.",
@@ -78,8 +84,8 @@ function buildPrompt(p: {
     "  or the free AI診断 (renesistech.jp/ai-shindan).",
     "- rationale: 1–2 English sentences on why this topic, this week.",
     "",
-    "SERVICES (service_slug must be one of these):",
-    ...p.services.map((s) => `- ${s.slug}: ${s.name_ja}`),
+    "AUDIENCE (service_slug must be a slug from SERVICES):",
+    p.brief,
     "",
     p.factSheet ? `RENESIS FACT SHEET:\n${p.factSheet.slice(0, 3000)}\n` : "",
     "SEARCH CONSOLE QUERIES (last 28 days; impressions, clicks, avg position):",
@@ -99,7 +105,7 @@ function buildPrompt(p: {
     ...(p.existing.length ? p.existing.map((e) => `- ${e}`) : ["- (none)"]),
     "",
     'Return ONLY JSON: {"topics":[{"kind","magnet_format","title_ja","title_en","primary_keyword","secondary_keywords",',
-    '"search_intent","service_slug","fit","demand_estimate","evergreen","signal_refs","rationale","outline","cta"}]}',
+    '"search_intent","service_slug","persona_ref","fit","demand_estimate","evergreen","signal_refs","rationale","outline","cta"}]}',
   ]
     .filter((l) => l !== "")
     .join("\n");
@@ -138,9 +144,9 @@ export function makeWeeklyShortlist(opts: { force?: boolean } = {}): Job {
       }
       if (opts.force) await sql`delete from topics where week_of = ${week} and status = 'proposed'`;
 
-      const services = await sql<{ id: string; slug: string; name_ja: string }[]>`
-        select id, slug, name_ja from services where active order by slug`;
-      const serviceId = new Map(services.map((s) => [s.slug, s.id]));
+      const targeting = await loadTargeting();
+      const personas = activePersonas(targeting);
+      const serviceId = new Map(targeting.services.filter((s) => s.active).map((s) => [s.slug, s.id]));
       const serviceId_ = (slug: string) => serviceId.get(slug) ?? null;
 
       const signals = await sql<SignalRow[]>`
@@ -181,7 +187,7 @@ export function makeWeeklyShortlist(opts: { force?: boolean } = {}): Job {
 
       const { topics } = await generateJson(
         buildPrompt({
-          services,
+          brief: targetingBrief(targeting),
           signals,
           queries,
           existing: existingRows.map((r) => r.t),
@@ -210,11 +216,12 @@ export function makeWeeklyShortlist(opts: { force?: boolean } = {}): Job {
         const [row] = await sql<{ id: string }[]>`
           insert into topics (
             kind, magnet_format, title_ja, title_en, primary_keyword, secondary_keywords, search_intent,
-            service_id, score, score_breakdown, rationale, outline, cta, week_of
+            service_id, icp_id, score, score_breakdown, rationale, outline, cta, week_of
           ) values (
             ${t.kind}, ${t.kind === "lead_magnet" ? (t.magnet_format ?? magnetFormat) : null},
             ${t.title_ja}, ${t.title_en || null}, ${t.primary_keyword}, ${t.secondary_keywords},
             ${t.search_intent}, ${topicServiceId},
+            ${t.persona_ref != null ? (personas[t.persona_ref]?.id ?? null) : null},
             ${score},
             ${sql.json({
               demand, demand_source: imp > 0 ? "search_console" : "estimate", gsc_impressions_28d: imp,

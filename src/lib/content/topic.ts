@@ -20,6 +20,7 @@ export type TopicFull = {
   target_path: string | null;
   service_name: string | null;
   service_url: string | null;
+  persona: { name: string; description: string | null; pains: string | null; industries: string[] } | null;
   signals: { title: string; url: string | null; buyer_problem: string | null }[];
 };
 
@@ -29,9 +30,11 @@ export async function getTopic(id: string): Promise<TopicFull | null> {
     select t.id, t.kind, t.magnet_format, t.title_ja, t.title_en, t.primary_keyword, t.secondary_keywords,
            t.search_intent, t.rationale, t.outline, t.cta, t.status, t.week_of::text, t.origin, t.target_path,
            sv.name_ja as service_name, sv.landing_url as service_url,
+           case when i.id is null then null
+                else json_build_object('name', i.name, 'description', i.description, 'pains', i.pains, 'industries', i.industries) end as persona,
            coalesce((select json_agg(json_build_object('title', s.title, 'url', s.url, 'buyer_problem', s.buyer_problem))
                      from topic_signals ts join signals s on s.id = ts.signal_id where ts.topic_id = t.id), '[]') as signals
-    from topics t left join services sv on sv.id = t.service_id
+    from topics t left join services sv on sv.id = t.service_id left join icps i on i.id = t.icp_id
     where t.id = ${id}`;
   return t ?? null;
 }

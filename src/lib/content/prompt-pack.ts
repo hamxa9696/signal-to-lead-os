@@ -17,6 +17,16 @@ const MAGNET_SPECS: Record<string, string> = {
     "A 2,000–3,000 character mini report: ## 要約 (3 bullets), ## 背景, ## 主なポイント (3–5 H3 findings), ## 日本企業への示唆, ## 次の一手. Cite the background sources by name where you use them.",
 };
 
+function targetReader(t: TopicFull): string[] {
+  const p = t.persona;
+  if (!p) return ["- Target reader: 日本企業の情報システム部門・DX推進・経営企画の管理職"];
+  return [
+    `- Target reader: ${p.name}${p.description ? `（${p.description}）` : ""}`,
+    p.pains && `- Their problems (address these directly): ${p.pains}`,
+    p.industries.length && `- Their industries (use examples from these): ${p.industries.join("、")}`,
+  ].filter((l): l is string => Boolean(l));
+}
+
 export function buildPromptPack(t: TopicFull, k: Knowledge, existing?: { markdown: string; url: string } | null): string {
   if (t.origin === "refresh") return buildRefreshPack(t, k, existing ?? null);
   const isMagnet = t.kind === "lead_magnet";
@@ -46,7 +56,7 @@ export function buildPromptPack(t: TopicFull, k: Knowledge, existing?: { markdow
     `- Secondary keywords: ${t.secondary_keywords.join("、") || "-"}`,
     `- Search intent: ${t.search_intent ?? "-"}`,
     `- Why this topic: ${t.rationale ?? "-"}`,
-    `- Target reader: 日本企業の情報システム部門・DX推進・経営企画の管理職`,
+    ...targetReader(t),
     `- Call to action: ${t.cta ?? "無料AI業務診断へ誘導"}`,
     "",
     isMagnet ? "## Content specification" : "## Suggested outline (improve it if you can)",
