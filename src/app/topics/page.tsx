@@ -50,6 +50,30 @@ const PILL: Record<string, { label: string; cls: string }> = {
   rejected: { label: "Rejected", cls: "text-faint bg-subtle border-line line-through" },
 };
 
+/** The four parts of a topic's 0–100 score. Colours are used for the bars, legend and labels. */
+const PARTS = [
+  {
+    key: "demand", short: "Demand", max: SCORE_MAX.demand, color: "#2E6BE6",
+    what: "How many people search for this topic on Google.",
+    how: "Search Console impressions for the keyword over the last 28 days: 1,000+ = full 40, scaled down logarithmically. Until Search Console is connected, Gemini estimates demand and the score is capped at 20.",
+  },
+  {
+    key: "fit", short: "Service fit", max: SCORE_MAX.fit, color: "#7C4DDB",
+    what: "How directly the topic leads a reader to a Renesis service.",
+    how: "Gemini rates the fit 0–10 against your services list, × 3.",
+  },
+  {
+    key: "freshness", short: "Freshness", max: SCORE_MAX.freshness, color: "#0E9F6E",
+    what: "How recent the news behind the topic is.",
+    how: "Newest linked news item: ≤ 3 days = 20, ≤ 7 days = 15, ≤ 14 days = 10, older = 5. Evergreen topics with no news get 10.",
+  },
+  {
+    key: "performance", short: "Past results", max: SCORE_MAX.performance, color: "#D97706",
+    what: "How similar pieces you already published performed.",
+    how: "Past pieces for the same service (and lead-magnet format) vs your average piece, first 90 days; one lead counts as 30 visits. 5 = average or not enough history yet.",
+  },
+] as const;
+
 const KIND = (t: Topic) =>
   t.origin === "refresh" ? "Rewrite" : t.kind === "lead_magnet" ? `Lead magnet · ${t.magnet_format ?? ""}` : "Article";
 
@@ -119,6 +143,37 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
         ))}
       </section>
 
+      <section aria-label="How topics are scored" className="card mt-5 px-[22px] py-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-sm font-semibold">How the score (0–100) is built</h2>
+          <p className="text-xs text-faint">Hover a bar to see its points</p>
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {PARTS.map((p) => (
+            <div key={p.key} className="flex gap-2.5">
+              <span className="mt-1 h-3 w-3 shrink-0 rounded-sm" style={{ background: p.color }} aria-hidden="true" />
+              <div>
+                <p className="text-[13px] font-semibold">
+                  {p.short} <span className="font-mono font-normal text-faint">/ {p.max}</span>
+                </p>
+                <p className="text-[12.5px] leading-snug text-muted">{p.what}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <details className="mt-3 text-[12.5px]">
+          <summary className="cursor-pointer font-medium text-accent-ink">Exactly how each part is calculated</summary>
+          <dl className="mt-2 space-y-1.5 text-muted">
+            {PARTS.map((p) => (
+              <div key={p.key}>
+                <dt className="inline font-semibold" style={{ color: p.color }}>{p.short} ({p.max}): </dt>
+                <dd className="inline">{p.how}</dd>
+              </div>
+            ))}
+          </dl>
+        </details>
+      </section>
+
       {!topics.length ? (
         <p className="card mt-5 px-6 py-8 text-sm text-muted">
           No topics for this week yet. The shortlist is generated every Monday at 06:30 JST, or use “Regenerate weekly shortlist” on the Status page.
@@ -129,7 +184,7 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
             <div className="eyebrow grid grid-cols-[64px_minmax(0,1fr)_184px_150px_170px] gap-4 rounded-t-[14px] border-b border-line bg-[#FAFAFB] px-[22px] py-3 text-[10.5px]">
               <span>Score</span>
               <span>Topic</span>
-              <span>Split D·F·N·P</span>
+              <span>Score split</span>
               <span>Service</span>
               <span>State</span>
             </div>
@@ -186,7 +241,7 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
         </section>
       )}
       <p className="mt-3.5 font-mono text-[11px] text-faint">
-        D demand /{SCORE_MAX.demand} · F fit /{SCORE_MAX.fit} · N freshness /{SCORE_MAX.freshness} · P past performance /{SCORE_MAX.performance}
+        * Demand is Gemini's estimate (capped at 20) until Search Console is connected.
       </p>
     </main>
   );
@@ -205,21 +260,26 @@ function ScoreRing({ value, strong }: { value: number; strong: boolean }) {
   );
 }
 
-function Split({ b, strong }: { b: Breakdown | null; strong: boolean }) {
+function Split({ b }: { b: Breakdown | null; strong?: boolean }) {
   if (!b) return <span className="text-xs text-faint">—</span>;
-  const parts = [
-    { v: b.demand, max: SCORE_MAX.demand, name: "Demand" },
-    { v: b.fit, max: SCORE_MAX.fit, name: "Fit" },
-    { v: b.freshness, max: SCORE_MAX.freshness, name: "Freshness" },
-    { v: b.performance, max: SCORE_MAX.performance, name: "Past performance" },
-  ];
+  const values: Record<string, number> = { demand: b.demand, fit: b.fit, freshness: b.freshness, performance: b.performance };
   return (
-    <div className="flex h-2 gap-[3px]" role="img" aria-label={parts.map((p) => `${p.name} ${p.v} of ${p.max}`).join(", ")}>
-      {parts.map((p) => (
-        <span key={p.name} title={`${p.name} ${p.v}/${p.max}`} className="w-10 overflow-hidden rounded-sm bg-[#EEF0F3]">
-          <span className={`block h-full ${strong ? "bg-accent" : "bg-[#98A2B3]"}`} style={{ width: `${(100 * p.v) / p.max}%` }} />
-        </span>
-      ))}
+    <div role="img" aria-label={PARTS.map((p) => `${p.short} ${values[p.key]} of ${p.max}`).join(", ")}>
+      <div className="flex h-2 gap-[3px]">
+        {PARTS.map((p) => (
+          <span key={p.key} title={`${p.short}: ${values[p.key]} / ${p.max}`} className="w-10 overflow-hidden rounded-sm" style={{ background: `${p.color}26` }}>
+            <span className="block h-full" style={{ width: `${(100 * values[p.key]) / p.max}%`, background: p.color }} />
+          </span>
+        ))}
+      </div>
+      <div className="mt-1 flex gap-[3px] font-mono text-[10.5px]">
+        {PARTS.map((p) => (
+          <span key={p.key} className="w-10" style={{ color: p.color }}>
+            {values[p.key]}
+            {p.key === "demand" && b.demand_source !== "search_console" ? "*" : ""}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
