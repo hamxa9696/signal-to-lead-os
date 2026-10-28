@@ -60,7 +60,7 @@ export function Sidebar({ signOut }: { signOut: (() => Promise<void>) | null }) 
           </svg>
         </span>
         <span>
-          <span className="block font-bold tracking-tight">Signal-to-Lead</span>
+          <span className="block font-bold tracking-tight">Kizashi <span lang="ja" className="ml-0.5 text-[12px] font-medium text-faint">兆し</span></span>
           <span className="block text-[11px] text-faint">Renesis Tech Japan</span>
         </span>
       </Link>

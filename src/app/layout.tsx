@@ -11,8 +11,8 @@ const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains", 
 const jp = Noto_Sans_JP({ weight: ["400", "500", "700"], subsets: ["latin"], variable: "--font-noto-jp", display: "swap", preload: false });
 
 export const metadata: Metadata = {
-  title: "Signal-to-Lead OS",
-  description: "Renesis content + inbound pipeline for the Japanese market.",
+  title: "Kizashi · Renesis Tech Japan",
+  description: "Kizashi (兆し): early market signals in Japan turned into content, traffic and leads.",
   // Browser auto-translation (e.g. Chrome Translate) rewrites the page behind React's back and makes
   // navigation crash. The app has its own 日本語 / English switch instead.
   other: { google: "notranslate" },
