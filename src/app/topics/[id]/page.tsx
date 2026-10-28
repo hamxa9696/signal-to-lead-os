@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { PendingButton } from "../../pending-button";
+import { topicPackage } from "@/lib/content/package";
 import { notFound } from "next/navigation";
 import { marked } from "marked";
 import { sql } from "@/lib/db";
@@ -96,13 +98,16 @@ export default async function TopicWorkspace({ params }: { params: Promise<{ id:
             </p>
           )}
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <CopyButton text={topicPackage({ ...topic, week_of: topic.week_of, service: topic.service_name, service_url: topic.service_url, persona: topic.persona?.name })} label="⧉ Copy package" className="btn" title="Copies the topic, keywords, signals and research with URLs, outline and links" />
         {topic.status === "proposed" && (
           <form action={setTopicStatus}>
             <input type="hidden" name="id" value={topic.id} />
             <input type="hidden" name="status" value="approved" />
-            <button className="btn-primary">Approve to start</button>
+            <PendingButton className="btn-primary" pendingText="Approving…">Approve to start</PendingButton>
           </form>
         )}
+        </div>
       </div>
 
       <ResearchPanel topicId={id} research={topic.research} />
@@ -122,7 +127,7 @@ export default async function TopicWorkspace({ params }: { params: Promise<{ id:
               <CopyButton text={pack!} label="Copy prompt pack" />
               <form action={rebuildPackAction}>
                 <input type="hidden" name="topicId" value={id} />
-                <button className="btn">Rebuild (after editing Knowledge)</button>
+                <PendingButton pendingText="Rebuilding…">Rebuild (after editing Knowledge)</PendingButton>
               </form>
             </div>
             <details>
@@ -143,9 +148,9 @@ export default async function TopicWorkspace({ params }: { params: Promise<{ id:
                 {item && item.status === "needs_revision" && (
                   <form action={markReadyAction}>
                     <input type="hidden" name="topicId" value={id} />
-                    <button className="rounded-md border border-warn/40 px-3 py-1.5 text-sm text-warn hover:bg-warn-soft">
+                    <PendingButton className="rounded-lg border border-warn/40 px-3 py-1.5 text-sm text-warn hover:bg-warn-soft">
                       Accept anyway (I checked it)
-                    </button>
+                    </PendingButton>
                   </form>
                 )}
               </div>

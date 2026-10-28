@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { PendingButton } from "./pending-button";
 import { LangSwitch } from "./translator";
 import { usePathname } from "next/navigation";
 
@@ -73,7 +74,6 @@ export function Sidebar({ signOut }: { signOut: (() => Promise<void>) | null }) 
                 <Link
                   key={l.href}
                   href={l.href}
-                  prefetch={false}
                   aria-current={active ? "page" : undefined}
                   className={`flex min-h-[36px] shrink-0 items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm ${
                     active ? "bg-surface font-semibold text-ink shadow-[0_1px_2px_rgba(16,24,40,0.06),0_0_0_1px_var(--color-line)]" : "text-muted hover:bg-subtle hover:text-ink"
@@ -96,7 +96,7 @@ export function Sidebar({ signOut }: { signOut: (() => Promise<void>) | null }) 
         </div>
         {signOut && (
           <form action={signOut}>
-            <button className="w-full whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm text-muted hover:bg-subtle hover:text-ink">Sign out</button>
+            <PendingButton pendingText="Signing out…" className="w-full whitespace-nowrap !justify-start rounded-lg px-3 py-2 text-left text-sm text-muted hover:bg-subtle hover:text-ink">Sign out</PendingButton>
           </form>
         )}
       </div>

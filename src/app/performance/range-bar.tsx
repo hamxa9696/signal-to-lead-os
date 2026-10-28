@@ -6,6 +6,7 @@ import { PRESETS, type PresetKey } from "@/lib/range";
 /** Date-range picker for the dashboard: presets as links, custom range as a small GET form. */
 export function RangeBar({ current, from, to, scope }: { current: PresetKey; from: string; to: string; scope?: string }) {
   const [open, setOpen] = useState(current === "custom");
+  const [going, setGoing] = useState(false);
   const qs = (range: string) => `/performance?${new URLSearchParams({ ...(range !== "28d" ? { range } : {}), ...(scope ? { scope } : {}) })}`;
   return (
     <div className="flex flex-col items-end gap-2">
@@ -20,7 +21,7 @@ export function RangeBar({ current, from, to, scope }: { current: PresetKey; fro
         </button>
       </nav>
       {open && (
-        <form action="/performance" className="card flex flex-wrap items-end gap-2 px-3 py-2.5">
+        <form action="/performance" onSubmit={() => setGoing(true)} className="card flex flex-wrap items-end gap-2 px-3 py-2.5">
           <input type="hidden" name="range" value="custom" />
           {scope && <input type="hidden" name="scope" value={scope} />}
           <label className="text-[11.5px] font-semibold uppercase tracking-wide text-faint">
@@ -31,7 +32,7 @@ export function RangeBar({ current, from, to, scope }: { current: PresetKey; fro
             To
             <input type="date" name="to" defaultValue={to} required className="mt-1 block rounded-lg border border-line-strong bg-surface px-2 py-1.5 text-[13px] font-normal normal-case tracking-normal text-ink focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent-soft" />
           </label>
-          <button className="btn-primary">Apply</button>
+          <button disabled={going} className="btn-primary">{going ? "Loading…" : "Apply"}</button>
         </form>
       )}
     </div>

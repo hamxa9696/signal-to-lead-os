@@ -1,4 +1,5 @@
 import { sql } from "@/lib/db";
+import { PendingButton } from "../pending-button";
 import { loadTargeting } from "@/lib/targeting";
 import { deleteSource, toggleSource } from "./actions";
 import { AddKeyword, AddRss } from "./forms";
@@ -99,12 +100,12 @@ export default async function SourcesPage() {
               <div className="flex justify-end gap-1">
                 <form action={toggleSource}>
                   <input type="hidden" name="id" value={r.id} />
-                  <button className="rounded-lg border border-line-strong px-2.5 py-1 text-[12px] hover:bg-subtle">{r.active ? "Pause" : "Resume"}</button>
+                  <PendingButton className="rounded-lg border border-line-strong px-2.5 py-1 text-[12px] hover:bg-subtle">{r.active ? "Pause" : "Resume"}</PendingButton>
                 </form>
                 {(r.category === "keyword_search" || r.category === "custom") && (
                   <form action={deleteSource}>
                     <input type="hidden" name="id" value={r.id} />
-                    <button aria-label={`Remove ${r.name}`} className="rounded-lg px-2 py-1 text-[12px] text-bad hover:bg-bad-soft">✕</button>
+                    <PendingButton ariaLabel={`Remove ${r.name}`} className="rounded-lg px-2 py-1 text-[12px] text-bad hover:bg-bad-soft">✕</PendingButton>
                   </form>
                 )}
               </div>

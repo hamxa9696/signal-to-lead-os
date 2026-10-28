@@ -23,7 +23,7 @@ export type TopicFull = {
   research: import("../research").Research | null;
   keyword_plan: import("../keywords").KeywordPlan | null;
   persona: { name: string; description: string | null; pains: string | null; industries: string[] } | null;
-  signals: { title: string; url: string | null; buyer_problem: string | null }[];
+  signals: { title: string; url: string | null; buyer_problem: string | null; source?: string | null; why?: string | null; published?: string | null }[];
 };
 
 export async function getTopic(id: string): Promise<TopicFull | null> {
@@ -34,8 +34,11 @@ export async function getTopic(id: string): Promise<TopicFull | null> {
            sv.name_ja as service_name, sv.landing_url as service_url,
            case when i.id is null then null
                 else json_build_object('name', i.name, 'description', i.description, 'pains', i.pains, 'industries', i.industries) end as persona,
-           coalesce((select json_agg(json_build_object('title', s.title, 'url', s.url, 'buyer_problem', s.buyer_problem))
-                     from topic_signals ts join signals s on s.id = ts.signal_id where ts.topic_id = t.id), '[]') as signals
+           coalesce((select json_agg(json_build_object('title', s.title, 'url', s.url, 'buyer_problem', s.buyer_problem,
+                       'source', src.name, 'why', s.analysis->>'why',
+                       'published', to_char(coalesce(s.published_at, s.fetched_at) at time zone 'Asia/Tokyo', 'DD Mon')))
+                     from topic_signals ts join signals s on s.id = ts.signal_id join sources src on src.id = s.source_id
+                     where ts.topic_id = t.id), '[]') as signals
     from topics t left join services sv on sv.id = t.service_id left join icps i on i.id = t.icp_id
     where t.id = ${id}`;
   return t ?? null;

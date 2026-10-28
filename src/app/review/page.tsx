@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PendingButton } from "../pending-button";
 import { sql } from "@/lib/db";
 import { monthStart, RULES } from "@/lib/monthly";
 import { RunButton } from "../run-button";
@@ -81,7 +82,7 @@ export default async function ReviewPage({ searchParams }: { searchParams: Promi
                           r.status === "open" && k.cta && (
                             <form action={actAction}>
                               <input type="hidden" name="id" value={r.id} />
-                              <button className="btn-primary">{k.cta}</button>
+                              <PendingButton className="btn-primary" pendingText="Creating…">{k.cta}</PendingButton>
                             </form>
                           )
                         )}
@@ -112,7 +113,7 @@ function StatusButton({ id, status, label }: { id: string; status: string; label
     <form action={statusAction}>
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="status" value={status} />
-      <button className="btn">{label}</button>
+      <PendingButton pendingText="Saving…">{label}</PendingButton>
     </form>
   );
 }

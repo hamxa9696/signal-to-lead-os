@@ -27,3 +27,16 @@ export async function setTopicStatus(form: FormData): Promise<void> {
   revalidatePath("/topics");
   revalidatePath(`/topics/${id}`);
 }
+
+/** Approve / reject / undo from the Topics list (called directly with plain values). */
+export async function decideTopic(id: string, status: "approved" | "rejected" | "proposed"): Promise<{ ok: boolean }> {
+  if (!/^[0-9a-f-]{36}$/.test(id) || !["approved", "rejected", "proposed"].includes(status)) return { ok: false };
+  const rows = await sql`
+    update topics set status = ${status},
+      decided_at = ${status === "proposed" ? null : sql`now()`}
+    where id = ${id} and status in ('proposed', 'approved', 'rejected')
+    returning id`;
+  revalidatePath("/topics");
+  revalidatePath(`/topics/${id}`);
+  return { ok: rows.length > 0 };
+}

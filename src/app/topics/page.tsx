@@ -2,10 +2,12 @@ import Link from "next/link";
 import { sql } from "@/lib/db";
 import { addDays, weekOf } from "@/lib/week";
 import { SCORE_MAX } from "@/jobs/weekly-shortlist";
-import { setTopicStatus } from "../actions";
 import type { KeywordPlan } from "@/lib/keywords";
 import { KeywordButton } from "./keyword-button";
 import { TopicTabs } from "./tabs";
+import { TopicDecision } from "./decision";
+import { CopyButton } from "../copy-button";
+import { topicPackage } from "@/lib/content/package";
 import { HoverCard } from "../hover-card";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +36,10 @@ type Topic = {
   status: string;
   item_status: string | null;
   keyword_plan: KeywordPlan | null;
+  research: import("@/lib/research").Research | null;
+  persona: string | null;
+  service_url: string | null;
+  week_of: string;
   signals: { title: string; url: string | null; source: string; published: string | null; relevance: number | null; why: string | null; niche: string | null }[];
 };
 
@@ -94,7 +100,8 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
     sql<Topic[]>`
       select t.id, t.kind, t.magnet_format, t.title_ja, t.title_en, t.primary_keyword, t.secondary_keywords,
              t.search_intent, t.origin, sv.name_ja as service, t.score::text,
-             t.score_breakdown, t.rationale, t.outline, t.cta, t.status, ci.status as item_status, t.keyword_plan,
+             t.score_breakdown, t.rationale, t.outline, t.cta, t.status, ci.status as item_status, t.keyword_plan, t.research,
+             i.name as persona, sv.landing_url as service_url, t.week_of::text,
              coalesce((select json_agg(json_build_object(
                          'title', s.title, 'url', s.url, 'source', src.name,
                          'published', to_char(coalesce(s.published_at, s.fetched_at) at time zone 'Asia/Tokyo', 'DD Mon'),
@@ -105,6 +112,7 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
                        where ts.topic_id = t.id), '[]') as signals
       from topics t
       left join services sv on sv.id = t.service_id
+      left join icps i on i.id = t.icp_id
       left join content_items ci on ci.topic_id = t.id and ci.parent_id is null
       where t.week_of = ${week}
       order by (t.status = 'rejected'), t.score desc nulls last`,
@@ -218,12 +226,11 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
                   </div>
                   <Split b={t.score_breakdown} strong={lead} signals={t.signals.length} total={score} />
                   <span lang="ja" className="text-body">{t.service?.replace(/サービス$/, "") ?? "—"}</span>
-                  <div>
+                  <div className="flex flex-col items-start gap-2">
                     {s === "proposed" ? (
-                      <span className="flex gap-1.5">
-                        <StatusButton id={t.id} status="approved" label="Approve" primary />
-                        <StatusButton id={t.id} status="rejected" label="Reject" />
-                      </span>
+                      <TopicDecision id={t.id} />
+                    ) : s === "rejected" ? (
+                      <TopicDecision id={t.id} initial="rejected" />
                     ) : s === "writing" ? (
                       <Link href={`/topics/${t.id}`} className="inline-flex min-h-8 items-center rounded-[7px] bg-ink px-3 text-[12.5px] font-semibold text-white hover:bg-body">
                         Start writing →
@@ -233,6 +240,12 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
                         {PILL[s].label}
                       </Link>
                     )}
+                    <CopyButton
+                      text={topicPackage({ ...t, score: Number(t.score ?? 0), signals: t.signals })}
+                      label="⧉ Copy package"
+                      title="Copies the topic, keywords, suggested keywords, signals and research with URLs, outline and links"
+                      className="inline-flex min-h-7 items-center rounded-[7px] border border-line-strong bg-surface px-2.5 text-[12px] font-medium text-muted hover:bg-subtle hover:text-ink"
+                    />
                   </div>
                 </div>
                 <TopicDetails t={t} />
@@ -325,19 +338,6 @@ function Split({ b, signals = 0, total }: { b: Breakdown | null; strong?: boolea
   );
 }
 
-function StatusButton({ id, status, label, primary }: { id: string; status: string; label: string; primary?: boolean }) {
-  return (
-    <form action={setTopicStatus}>
-      <input type="hidden" name="id" value={id} />
-      <input type="hidden" name="status" value={status} />
-      <button
-        className={`min-h-8 rounded-[7px] px-3 text-[12.5px] ${primary ? "bg-accent font-semibold text-white hover:bg-accent-ink" : "border border-line-strong bg-surface text-muted hover:bg-subtle"}`}
-      >
-        {label}
-      </button>
-    </form>
-  );
-}
 
 const ROLE: Record<string, string> = { primary: "Main keyword", heading: "Use as headings (H2)", long_tail: "Work into the text", faq: "Answer as FAQ" };
 const COMP: Record<string, { dot: string; label: string }> = {
