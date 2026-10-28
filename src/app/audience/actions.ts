@@ -55,3 +55,11 @@ export async function deletePersona(form: FormData): Promise<void> {
   if (UUID.test(id)) await sql`delete from icps where id = ${id}`;
   done();
 }
+
+export async function saveChannels(form: FormData): Promise<void> {
+  const { CHANNELS } = await import("@/lib/formats");
+  const { setSetting } = await import("@/lib/settings");
+  const picked = form.getAll("channels").map(String).filter((c) => c in CHANNELS);
+  await setSetting("channels", picked);
+  done();
+}

@@ -5,6 +5,8 @@ import { SCORE_MAX } from "@/jobs/weekly-shortlist";
 import type { KeywordPlan } from "@/lib/keywords";
 import { KeywordButton } from "./keyword-button";
 import { TopicTabs } from "./tabs";
+import { ContentPackage, SlotBadge } from "./content-package";
+import { SLOTS, type FormatPlan, type FormatScores, type Slot } from "@/lib/formats";
 import { TopicDecision } from "./decision";
 import { CopyButton } from "../copy-button";
 import { topicPackage } from "@/lib/content/package";
@@ -40,6 +42,11 @@ type Topic = {
   persona: string | null;
   service_url: string | null;
   week_of: string;
+  slot: Slot | null;
+  format_plan: FormatPlan | null;
+  format_scores: FormatScores | null;
+  deadline: Date | null;
+  hub_url: string | null;
   signals: { title: string; url: string | null; source: string; published: string | null; relevance: number | null; why: string | null; niche: string | null }[];
 };
 
@@ -91,8 +98,18 @@ const KIND = (t: Topic) =>
 const fmtWeek = (d: string) =>
   new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${d}T00:00:00Z`));
 
-export default async function TopicsPage({ searchParams }: { searchParams: Promise<{ week?: string }> }) {
-  const { week: weekParam } = await searchParams;
+const FILTERS = [
+  { key: "", label: "All" },
+  { key: "evergreen", label: "Evergreen SEO" },
+  { key: "fast_take", label: "Fast takes" },
+  { key: "lead_magnet", label: "Lead magnets" },
+  { key: "video", label: "Video" },
+  { key: "refresh", label: "Rewrites" },
+] as const;
+
+export default async function TopicsPage({ searchParams }: { searchParams: Promise<{ week?: string; format?: string }> }) {
+  const { week: weekParam, format: fmtParam } = await searchParams;
+  const fmt = FILTERS.some((f) => f.key === fmtParam) ? fmtParam! : "";
   const [{ latest }] = await sql<{ latest: string | null }[]>`select max(week_of)::text as latest from topics`;
   const week = /^\d{4}-\d{2}-\d{2}$/.test(weekParam ?? "") ? weekParam! : (latest ?? weekOf());
 
@@ -102,6 +119,9 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
              t.search_intent, t.origin, sv.name_ja as service, t.score::text,
              t.score_breakdown, t.rationale, t.outline, t.cta, t.status, ci.status as item_status, t.keyword_plan, t.research,
              i.name as persona, sv.landing_url as service_url, t.week_of::text,
+             t.slot, t.format_plan, t.format_scores, t.deadline,
+             (select p.url from publications p join content_items c2 on c2.id = p.content_item_id
+               where c2.topic_id = t.id and p.channel = 'website' and p.status = 'live' limit 1) as hub_url,
              coalesce((select json_agg(json_build_object(
                          'title', s.title, 'url', s.url, 'source', src.name,
                          'published', to_char(coalesce(s.published_at, s.fetched_at) at time zone 'Asia/Tokyo', 'DD Mon'),
@@ -194,6 +214,17 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
         </details>
       </section>
 
+      <nav aria-label="Content format" className="seg self-start">
+        {FILTERS.map((f) => {
+          const n = f.key === "" ? topics.length : f.key === "video" ? topics.filter((t) => t.format_plan?.video).length : topics.filter((t) => t.slot === f.key).length;
+          return (
+            <Link key={f.key} prefetch={false} href={`/topics?${new URLSearchParams({ ...(weekParam ? { week } : {}), ...(f.key ? { format: f.key } : {}) })}`} aria-current={fmt === f.key ? "page" : undefined} className={fmt === f.key ? "seg-on" : "seg-item"}>
+              {f.label} <span className="font-mono text-[12px] text-faint">{n}</span>
+            </Link>
+          );
+        })}
+      </nav>
+
       {!topics.length ? (
         <p className="card px-6 py-8 text-sm text-muted">
           No topics for this week yet. The shortlist is generated every Monday at 06:30 JST, or use “Regenerate weekly shortlist” on the Status page.
@@ -208,7 +239,7 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
               <span>Service</span>
               <span>State</span>
             </div>
-            {topics.map((t) => {
+            {topics.filter((t) => !fmt || (fmt === "video" ? t.format_plan?.video : t.slot === fmt)).map((t) => {
               const s = stage(t);
               const score = Math.round(Number(t.score ?? 0));
               const lead = s !== "proposed" && s !== "rejected";
@@ -220,8 +251,10 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
                     <Link href={`/topics/${t.id}`} lang="ja" className="block font-jp text-[15px] font-medium leading-normal hover:text-accent-ink">
                       {t.title_ja}
                     </Link>
-                    <p className="mt-1 text-[12.5px] text-faint">
-                      {KIND(t)} · <span lang="ja">{t.primary_keyword}</span>
+                    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-faint">
+                      <SlotBadge slot={t.slot} deadline={t.slot === "fast_take" && stage(t) !== "live" ? t.deadline : null} />
+                      <span>{KIND(t)} · <span lang="ja">{t.primary_keyword}</span></span>
+                      {t.format_plan && <span title="Off-site channels pointing to this piece">→ {t.format_plan.spokes.map((x) => x.channel === "linkedin" ? "LinkedIn" : x.channel === "x" ? "X" : x.channel === "note" ? "note" : x.channel === "youtube" ? "YouTube" : "Newsletter").join(" · ")}</span>}
                     </p>
                   </div>
                   <Split b={t.score_breakdown} strong={lead} signals={t.signals.length} total={score} />
@@ -358,6 +391,7 @@ function TopicDetails({ t }: { t: Topic }) {
         <span className="transition group-open:rotate-90">›</span>
         {t.signals.length ? `${t.signals.length} signal${t.signals.length === 1 ? "" : "s"} behind it` : "Evergreen (no news signal)"} · {1 + t.secondary_keywords.length} keywords
         {plan ? ` · ${plan.keywords.length} suggested to rank for` : " · keyword suggestions not run yet"}
+        {t.format_plan ? ` · content package (${1 + t.format_plan.spokes.length} pieces)` : ""}
       </summary>
       <div className="mt-3 ml-[80px] grid gap-5 rounded-xl border border-line bg-subtle/50 p-4 lg:grid-cols-[1.2fr_0.8fr_1.2fr]">
         <section className="min-w-0">
@@ -438,6 +472,16 @@ function TopicDetails({ t }: { t: Topic }) {
           )}
         </section>
       </div>
+      <section className="mt-3 ml-[80px] rounded-xl border border-line bg-subtle/50 p-4">
+        <h3 className="eyebrow mb-2.5">Content package · one hub on the website, spokes that send people to it</h3>
+        <ContentPackage
+          t={{ ...t, score: Number(t.score ?? 0) }}
+          plan={t.format_plan}
+          scores={t.format_scores}
+          slot={t.slot}
+          hubUrl={t.hub_url}
+        />
+      </section>
     </details>
   );
 }

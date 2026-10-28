@@ -13,6 +13,10 @@ const MAGNET_SPECS: Record<string, string> = {
     "A comparison guide: ## 比較の観点 (6–10 criteria with why each matters), then one ## section per option with 向いているケース / 注意点, then ## 選び方のフロー as a numbered decision list. You MAY use one Markdown table here.",
   template:
     "A fill-in template the reader can copy: ## sections with placeholders in 【】 and one line of guidance under each placeholder, followed by ## 記入例 with a short realistic example marked as 例.",
+  self_assessment:
+    "A self-assessment quiz (自己診断): ## 使い方, then 10–15 questions grouped under 3–4 ## areas, each with 3 answer options scored 0/1/2 written as `- 選択肢（n点）`. End with ## 診断結果 giving 3 score bands (e.g. 0–10 / 11–20 / 21–30) with what each level means and the next step, pointing to the free AI業務診断.",
+  case_collection:
+    "A case-study collection (事例集): ## 概要, then 4–6 ## cases. Each case: 業界・規模, 課題, 取り組み, 成果 (numbers only if from the FACT SHEET or the given sources, otherwise [要確認]), 学び. End with ## 共通するポイント and a closing CTA.",
   mini_report:
     "A 2,000–3,000 character mini report: ## 要約 (3 bullets), ## 背景, ## 主なポイント (3–5 H3 findings), ## 日本企業への示唆, ## 次の一手. Cite the background sources by name where you use them.",
 };

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PendingButton } from "../../pending-button";
 import { topicPackage } from "@/lib/content/package";
+import { ContentPackage, SlotBadge } from "../content-package";
 import { notFound } from "next/navigation";
 import { marked } from "marked";
 import { sql } from "@/lib/db";
@@ -109,6 +110,15 @@ export default async function TopicWorkspace({ params }: { params: Promise<{ id:
         )}
         </div>
       </div>
+
+      <section aria-label="Content package" className="card p-5">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <h2 className="font-semibold">Content package</h2>
+          <SlotBadge slot={topic.slot} deadline={topic.slot === "fast_take" ? topic.deadline : null} />
+        </div>
+        <p className="mb-3 text-[13px] text-faint">One hub on renesistech.jp where traffic and leads land, plus the channels that send people to it. Each channel has a ready prompt with a tracked link.</p>
+        <ContentPackage t={{ ...topic, service: topic.service_name, persona: topic.persona?.name }} plan={topic.format_plan} scores={topic.format_scores} slot={topic.slot} hubUrl={topic.hub_url} />
+      </section>
 
       <ResearchPanel topicId={id} research={topic.research} />
 

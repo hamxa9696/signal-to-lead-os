@@ -22,6 +22,11 @@ export type TopicFull = {
   service_url: string | null;
   research: import("../research").Research | null;
   keyword_plan: import("../keywords").KeywordPlan | null;
+  slot: import("../formats").Slot | null;
+  format_plan: import("../formats").FormatPlan | null;
+  format_scores: import("../formats").FormatScores | null;
+  deadline: Date | null;
+  hub_url: string | null;
   persona: { name: string; description: string | null; pains: string | null; industries: string[] } | null;
   signals: { title: string; url: string | null; buyer_problem: string | null; source?: string | null; why?: string | null; published?: string | null }[];
 };
@@ -30,7 +35,9 @@ export async function getTopic(id: string): Promise<TopicFull | null> {
   if (!/^[0-9a-f-]{36}$/.test(id)) return null;
   const [t] = await sql<TopicFull[]>`
     select t.id, t.kind, t.magnet_format, t.title_ja, t.title_en, t.primary_keyword, t.secondary_keywords,
-           t.search_intent, t.rationale, t.outline, t.cta, t.status, t.week_of::text, t.origin, t.target_path, t.research, t.keyword_plan,
+           t.search_intent, t.rationale, t.outline, t.cta, t.status, t.week_of::text, t.origin, t.target_path, t.research, t.keyword_plan, t.slot, t.format_plan, t.format_scores, t.deadline,
+           (select p.url from publications p join content_items c2 on c2.id = p.content_item_id
+             where c2.topic_id = t.id and p.channel = 'website' and p.status = 'live' limit 1) as hub_url,
            sv.name_ja as service_name, sv.landing_url as service_url,
            case when i.id is null then null
                 else json_build_object('name', i.name, 'description', i.description, 'pains', i.pains, 'industries', i.industries) end as persona,

@@ -1,5 +1,6 @@
 import { loadTargeting, TIER_LABEL, type Industry, type Persona, type Service } from "@/lib/targeting";
-import { deleteIndustry, deletePersona, saveIndustry, savePersona, saveService } from "./actions";
+import { deleteIndustry, deletePersona, saveChannels, saveIndustry, savePersona, saveService } from "./actions";
+import { CHANNELS, enabledChannels, type Channel } from "@/lib/formats";
 import { Submit } from "./submit";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,7 @@ const PRIORITY_STYLE: Record<Industry["priority"], string> = {
 };
 
 export default async function AudiencePage() {
-  const t = await loadTargeting();
+  const [t, channels] = await Promise.all([loadTargeting(), enabledChannels()]);
   const activeIndustries = t.industries.filter((i) => i.active);
   const activeServices = t.services.filter((s) => s.active);
   return (
@@ -26,6 +27,22 @@ export default async function AudiencePage() {
           pack names the persona it writes for. Changes apply from the next run.
         </p>
       </div>
+
+      <section aria-labelledby="channels" className="flex flex-col gap-3">
+        <SectionHead id="channels" title="Channels you post on" help="Kizashi plans spokes only for these. The website is always the hub. YouTube is planned once a month." />
+        <form action={saveChannels} className="card flex flex-wrap items-center gap-2 p-4">
+          <span className="mr-1 rounded-full bg-ink px-3 py-1 text-[12.5px] font-semibold text-white">Website (hub) ✓</span>
+          {(Object.keys(CHANNELS) as Channel[]).map((c) => (
+            <label key={c} className="cursor-pointer">
+              <input type="checkbox" name="channels" value={c} defaultChecked={channels.includes(c)} className="peer sr-only" />
+              <span className="inline-block rounded-full border border-line-strong px-3 py-1 text-[12.5px] text-muted peer-checked:border-accent peer-checked:bg-accent-soft peer-checked:text-accent-ink peer-focus-visible:ring-4 peer-focus-visible:ring-accent-soft">
+                {CHANNELS[c].label}
+              </span>
+            </label>
+          ))}
+          <span className="ml-auto"><Submit label="Save channels" /></span>
+        </form>
+      </section>
 
       <section aria-labelledby="personas" className="flex flex-col gap-3">
         <SectionHead id="personas" title="Personas" help="The readers we write for. Each weekly topic is assigned to one; primary personas get most topics." />

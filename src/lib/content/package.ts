@@ -3,6 +3,8 @@
 // list and the topic page.
 import type { KeywordPlan } from "../keywords";
 import type { Research } from "../research";
+import { CHANNELS, HUBS, MAGNET_TYPES, SLOTS, type FormatPlan, type Slot } from "../formats";
+import { hubLink } from "./spokes";
 
 const SITE = "https://renesistech.jp";
 
@@ -25,6 +27,10 @@ export type PackageInput = {
   keyword_plan: KeywordPlan | null;
   research: Research | null;
   signals: { title: string; url: string | null; source?: string | null; published?: string | null; why?: string | null }[];
+  id?: string;
+  slot?: Slot | null;
+  format_plan?: FormatPlan | null;
+  hub_url?: string | null;
 };
 
 const ROLE: Record<string, string> = { primary: "Main keyword", heading: "Use as H2 headings", long_tail: "Work into the body", faq: "Answer as FAQ" };
@@ -76,6 +82,18 @@ export function topicPackage(t: PackageInput): string {
     lines.push(...r.points.map((p) => `- ${p.text}${p.refs.length ? ` [${p.refs.join(", ")}]` : ""}`));
     if (r.questions.length) lines.push("", "Reader questions:", ...r.questions.map((q) => `- ${q}`));
     lines.push("", "Sources:", ...r.sources.map((s) => `[${s.n}] ${s.title}${s.publisher ? ` — ${s.publisher}` : ""}${s.date ? `, ${s.date}` : ""}${s.url ? `\n    ${s.url}` : ""}`));
+  }
+
+  const fp = t.format_plan;
+  if (fp) {
+    lines.push(
+      "",
+      "## Content package",
+      `- Slot: ${t.slot ? SLOTS[t.slot].label : "-"}`,
+      `- Hub (renesistech.jp): ${fp.hub === "lead_magnet" && fp.magnet_type ? `${HUBS.lead_magnet.label}: ${MAGNET_TYPES[fp.magnet_type].label}` : HUBS[fp.hub].label}`,
+      ...fp.spokes.map((s) => `- ${CHANNELS[s.channel].formatLabel} — ${s.timing}: ${s.why}${t.id ? `\n  Link: ${hubLink(t.hub_url ?? null, s.channel, t.id)}` : ""}`),
+      fp.why && `- Why: ${fp.why}`,
+    );
   }
 
   lines.push(
