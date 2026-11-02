@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { sql } from "@/lib/db";
+import { authorSelect, type Author } from "@/lib/experts";
 import { addDays, weekOf } from "@/lib/week";
 import { SCORE_MAX } from "@/jobs/weekly-shortlist";
 import type { KeywordPlan } from "@/lib/keywords";
 import { KeywordButton } from "./keyword-button";
 import { TopicTabs } from "./tabs";
 import { ContentPackage, SlotBadge } from "./content-package";
-import { SLOTS, type FormatPlan, type FormatScores, type Slot } from "@/lib/formats";
+import { CHANNELS, SLOTS, type FormatPlan, type FormatScores, type Slot } from "@/lib/formats";
 import { TopicDecision } from "./decision";
 import { CopyButton } from "../copy-button";
 import { topicPackage } from "@/lib/content/package";
@@ -40,6 +41,7 @@ type Topic = {
   keyword_plan: KeywordPlan | null;
   research: import("@/lib/research").Research | null;
   persona: string | null;
+  author: Author | null;
   service_url: string | null;
   week_of: string;
   slot: Slot | null;
@@ -119,7 +121,7 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
       select t.id, t.kind, t.magnet_format, t.title_ja, t.title_en, t.primary_keyword, t.secondary_keywords,
              t.search_intent, t.origin, sv.name_ja as service, t.score::text,
              t.score_breakdown, t.rationale, t.outline, t.cta, t.status, ci.status as item_status, t.keyword_plan, t.research,
-             i.name as persona, sv.landing_url as service_url, t.week_of::text,
+             i.name as persona, sv.landing_url as service_url, t.week_of::text, ${authorSelect()} as author,
              t.slot, t.format_plan, t.format_scores, t.deadline,
              coalesce((select json_object_agg(channel, posted_at) from topic_spokes s where s.topic_id = t.id), '{}') as posted,
              (select p.url from publications p join content_items c2 on c2.id = p.content_item_id
@@ -256,7 +258,7 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
                     <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-faint">
                       <SlotBadge slot={t.slot} deadline={t.slot === "fast_take" && stage(t) !== "live" ? t.deadline : null} />
                       <span>{KIND(t)} · <span lang="ja">{t.primary_keyword}</span></span>
-                      {t.format_plan && <span title="Off-site channels pointing to this piece">→ {t.format_plan.spokes.map((x) => x.channel === "linkedin" ? "LinkedIn" : x.channel === "x" ? "X" : x.channel === "note" ? "note" : x.channel === "youtube" ? "YouTube" : "Newsletter").join(" · ")}</span>}
+                      {t.format_plan && <span title="Off-site channels pointing to this piece">→ {t.format_plan.spokes.map((x) => CHANNELS[x.channel]?.label ?? x.channel).join(" · ")}</span>}
                     </p>
                   </div>
                   <Split b={t.score_breakdown} strong={lead} signals={t.signals.length} total={score} />

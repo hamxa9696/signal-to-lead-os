@@ -1,6 +1,7 @@
 // Loading a topic with everything the content workflow needs.
 import "server-only";
 import { sql } from "@/lib/db";
+import { authorSelect, type Author } from "@/lib/experts";
 
 export type TopicFull = {
   id: string;
@@ -28,6 +29,7 @@ export type TopicFull = {
   deadline: Date | null;
   hub_url: string | null;
   posted: Record<string, string | null>;
+  author: Author | null;
   persona: { name: string; description: string | null; pains: string | null; industries: string[] } | null;
   signals: { title: string; url: string | null; buyer_problem: string | null; source?: string | null; why?: string | null; published?: string | null }[];
 };
@@ -40,7 +42,7 @@ export async function getTopic(id: string): Promise<TopicFull | null> {
            coalesce((select json_object_agg(channel, posted_at) from topic_spokes s where s.topic_id = t.id), '{}') as posted,
            (select p.url from publications p join content_items c2 on c2.id = p.content_item_id
              where c2.topic_id = t.id and p.channel = 'website' and p.status = 'live' limit 1) as hub_url,
-           sv.name_ja as service_name, sv.landing_url as service_url,
+           sv.name_ja as service_name, sv.landing_url as service_url, ${authorSelect()} as author,
            case when i.id is null then null
                 else json_build_object('name', i.name, 'description', i.description, 'pains', i.pains, 'industries', i.industries) end as persona,
            coalesce((select json_agg(json_build_object('title', s.title, 'url', s.url, 'buyer_problem', s.buyer_problem,

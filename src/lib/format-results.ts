@@ -40,14 +40,16 @@ export async function hubResults(): Promise<HubResult[]> {
 
 export async function channelResults(days = 90): Promise<ChannelResult[]> {
   const [visits, posts] = await Promise.all([
-    sql<{ source: string; sessions: number; engaged: number; leads: number }[]>`
-      select source, sum(sessions)::int as sessions, sum(engaged)::int as engaged, sum(leads)::int as leads
-      from channel_metrics_daily where date >= current_date - ${days}::int group by source`,
+    sql<{ source: string; content: string; sessions: number; engaged: number; leads: number }[]>`
+      select source, content, sum(sessions)::int as sessions, sum(engaged)::int as engaged, sum(leads)::int as leads
+      from channel_metrics_daily where date >= current_date - ${days}::int group by source, content`,
     sql<{ channel: string; n: number }[]>`
       select channel, count(*)::int as n from topic_spokes where posted_at >= now() - make_interval(days => ${days}) group by channel`,
   ]);
   return (Object.keys(CHANNELS) as Channel[]).map((c) => {
-    const v = visits.find((x) => x.source === CHANNELS[c].utm.source);
+    // LinkedIn has three formats on one source, so match on the format (utm_content) there.
+    const rows = visits.filter((x) => x.source === CHANNELS[c].utm.source && (CHANNELS[c].utm.source !== "linkedin" || x.content === CHANNELS[c].format));
+    const v = rows.length ? rows.reduce((a, r) => ({ sessions: a.sessions + r.sessions, engaged: a.engaged + r.engaged, leads: a.leads + r.leads }), { sessions: 0, engaged: 0, leads: 0 }) : null;
     const n = posts.find((x) => x.channel === c)?.n ?? 0;
     const sessions = v?.sessions ?? 0;
     return { channel: c, label: CHANNELS[c].formatLabel, posts: n, sessions, engaged: v?.engaged ?? 0, leads: v?.leads ?? 0, perPost: n ? Math.round((sessions / n) * 10) / 10 : 0 };

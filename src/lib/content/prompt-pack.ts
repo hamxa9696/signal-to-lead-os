@@ -1,6 +1,7 @@
 // Builds the ready-to-paste prompt for ChatGPT / Claude. Deterministic: no AI call.
 import type { Knowledge } from "./knowledge";
 import type { TopicFull } from "./topic";
+import { authorLine } from "../experts";
 
 const SITE = "https://renesistech.jp";
 
@@ -109,14 +110,31 @@ export function buildPromptPack(t: TopicFull, k: Knowledge, existing?: { markdow
           "- 5–8 H2 sections, finishing with ## まとめ, then a CTA paragraph with a link from INTERNAL LINKS.",
           "- Add 1–3 internal links in the body where they genuinely help the reader.",
           "",
-          "AI-search (GEO) rules, so ChatGPT, Gemini, Copilot and Perplexity can quote this page:",
-          "- Open with a 2–3 sentence 結論 that answers the main question on its own (it should make sense quoted alone).",
+          "AI-search (GEO) rules, so ChatGPT, Gemini, Copilot and Perplexity can quote this page",
+          "(based on what the most-cited B2B articles share: lists 100%, H2/H3 92%, named tools 75%, hard numbers 67%):",
+          "- Open with a paragraph that starts with **結論：** and answers the main question in 2–3 sentences (makes sense quoted alone).",
           "- Phrase most H2s as the questions buyers ask (〜とは？ / 費用はいくら？ / 選び方は？ / 失敗しないためには？).",
-          "- Keep each section's first sentence a self-contained answer; then explain.",
-          "- Every number states its source in the sentence (〜の調査によると / 出典: …). Use [要確認] if you have no source.",
-          "- Include one comparison table or step list where it helps (AI lifts structured facts).",
+          "- Answer block: the FIRST paragraph under every H2 is a 60–150 character direct answer to that heading; then explain.",
+          "- Use bullet or numbered lists in at least 3 sections, and ### subheadings where a section has parts.",
+          "- Name specific tools, companies, standards, laws and agencies (e.g. 金融庁, ISO 27001, Hyperledger) rather than vague words.",
+          "- Use hard numbers (costs, timelines, percentages) and state each source in the sentence (〜の調査によると / 出典: …). Use [要確認] if you have no source.",
+          "- Include one evaluation framework: judging criteria or a comparison as a numbered list (tables do not render on the site).",
+          ...(["commercial", "transactional"].includes(t.search_intent ?? "")
+            ? ["- This is a buying-stage topic: include a ## 〜の選び方 / 失敗しない判断基準 section (AI answers vendor-choice questions from these)."]
+            : []),
+          ...(t.slot === "fast_take" || /\d{4}年|最新|改正|規制/.test(t.title_ja)
+            ? [`- Time-sensitive: put the year (${new Date().getFullYear()}年) or month in the title so readers and AI see it is current.`]
+            : []),
           "- Before まとめ, add ## よくある質問 with 3–5 Q&As (Q in bold, answer in 2–3 sentences), using the reader questions given.",
+          "- Make ## まとめ a 3–5 item checklist of practical next steps, then the CTA paragraph.",
           "- Name the company consistently as 「Renesis Tech Japan」 and the service by its page name.",
+          ...(t.author
+            ? [
+                `- Author: ${authorLine(t.author)}`,
+                "  Weave in their first-hand view where it adds value (no invented projects). After the CTA, add a",
+                `  one-line byline: 「執筆・監修: ${t.author.name}${t.author.role ? `（${t.author.role}）` : ""}」${t.author.linkedin_url ? ` linked to ${t.author.linkedin_url}` : ""}.`,
+              ]
+            : []),
         ]),
     "",
     "## Internal links you may use",

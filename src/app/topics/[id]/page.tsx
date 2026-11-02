@@ -11,7 +11,9 @@ import { buildRevisionPrompt, PASS_SCORE, type ReviewResult } from "@/lib/conten
 import { adminUrl, payloadReady } from "@/lib/content/publish";
 import { CopyButton } from "../../copy-button";
 import { setTopicStatus } from "../../actions";
-import { markReadyAction, rebuildPackAction } from "./actions";
+import { markReadyAction, rebuildPackAction, setAuthorAction } from "./actions";
+import { loadExperts } from "@/lib/experts";
+import { citability, type Citability } from "@/lib/content/citability";
 import { BuildPdf, DraftForm, PushToPayload, RerunReview, ResearchButton, UploadPdf } from "./forms";
 import type { Research } from "@/lib/research";
 import { downloadBaseUrl, storageReady } from "@/lib/magnet/storage";
@@ -79,6 +81,8 @@ export default async function TopicWorkspace({ params }: { params: Promise<{ id:
     ? await sql<MagnetFile[]>`select slug, bytes, pages, public_url, version_id, created_at from magnet_files where content_item_id = ${item.id}`
     : [];
   const review = current?.review ?? null;
+  const experts = (await loadExperts()).filter((e) => e.active || e.id === topic.author?.id);
+  const cite = topic.kind === "article" && current ? (review?.citability ?? citability(current.body_md, item?.title ?? "")) : null;
   const payload = payloadReady();
   const isArticle = topic.kind === "article";
 
@@ -98,6 +102,22 @@ export default async function TopicWorkspace({ params }: { params: Promise<{ id:
               Written for <span lang="ja" className="font-medium text-ink">{topic.persona.name}</span>
             </p>
           )}
+          <form action={setAuthorAction} className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-muted">
+            <input type="hidden" name="topicId" value={topic.id} />
+            <span title="AI search cites people far more than company pages: the prompts write in this expert's voice and add their byline">Author</span>
+            {experts.length ? (
+              <>
+                <select name="authorId" defaultValue={topic.author && !topic.author.auto ? topic.author.id : ""} aria-label="Author"
+                  className="rounded-lg border border-line-strong bg-surface px-2 py-1 text-[13px] text-ink">
+                  <option value="">Automatic{topic.author?.auto ? ` (${topic.author.name})` : " (no match)"}</option>
+                  {experts.map((e) => <option key={e.id} value={e.id}>{e.name}{e.role ? ` · ${e.role}` : ""}</option>)}
+                </select>
+                <PendingButton className="btn !py-1 !text-[12.5px]" pendingText="Saving…">Set</PendingButton>
+              </>
+            ) : (
+              <Link href="/audience#experts" className="text-accent hover:underline">add your experts on Audience</Link>
+            )}
+          </form>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <CopyButton text={topicPackage({ ...topic, week_of: topic.week_of, service: topic.service_name, service_url: topic.service_url, persona: topic.persona?.name })} label="⧉ Copy package" className="btn" title="Copies the topic, keywords, signals and research with URLs, outline and links" />
@@ -153,6 +173,7 @@ export default async function TopicWorkspace({ params }: { params: Promise<{ id:
           {current && (
             <Section n={3} title={`Review of v${current.version}`} done={current.review_passed === true || current.human_checked}>
               <ReviewView review={review} humanChecked={current.human_checked} />
+              {cite && <CitabilityView c={cite} />}
               <div className="flex flex-wrap items-center gap-3">
                 <RerunReview topicId={id} />
                 {item && item.status === "needs_revision" && (
@@ -341,6 +362,29 @@ function ReviewView({ review, humanChecked }: { review: ReviewResult | null; hum
           </ol>
         </div>
       )}
+    </div>
+  );
+}
+
+function CitabilityView({ c }: { c: Citability }) {
+  const tone = c.score >= 80 ? "text-good" : c.score >= 60 ? "text-warn" : "text-bad";
+  return (
+    <div className="rounded-lg border border-line p-3">
+      <h3 className="text-sm font-medium text-ink">
+        AI-search citability <span className={`font-mono ${tone}`}>{c.score}/100</span>
+        <span className="ml-2 font-normal text-faint">how easily ChatGPT, Gemini, Copilot and Perplexity can quote it · advisory, not blocking</span>
+      </h3>
+      <ul className="mt-2 grid gap-x-6 gap-y-1 text-sm md:grid-cols-2">
+        {c.parts.map((p) => (
+          <li key={p.id} className="flex min-w-0 items-center gap-2" title={p.tip}>
+            <span className="h-1.5 w-12 shrink-0 overflow-hidden rounded-full bg-subtle">
+              <span className="block h-full bg-accent" style={{ width: `${(p.points / p.max) * 100}%` }} />
+            </span>
+            <span className={`shrink-0 ${p.points >= p.max * 0.7 ? "text-muted" : "text-ink"}`}>{p.label}</span>
+            <span lang="ja" className="min-w-0 truncate text-faint">{p.points < p.max * 0.7 ? p.tip : p.detail}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

@@ -22,6 +22,7 @@ export type PackageInput = {
   outline: string[] | null;
   cta: string | null;
   persona?: string | null;
+  author?: import("../experts").Author | null;
   service?: string | null;
   service_url?: string | null;
   keyword_plan: KeywordPlan | null;
@@ -45,6 +46,7 @@ export function topicPackage(t: PackageInput): string {
     t.week_of && `- Week: ${t.week_of}`,
     t.score != null && `- Score: ${Math.round(t.score)}/100`,
     t.persona && `- Reader: ${t.persona}`,
+    t.author && `- Author: ${t.author.name}${t.author.role ? ` (${t.author.role})` : ""}`,
     t.service && `- Service: ${t.service}${t.service_url ? ` — ${t.service_url}` : ""}`,
     t.search_intent && `- Search intent: ${t.search_intent}`,
     "",

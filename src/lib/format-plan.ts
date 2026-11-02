@@ -56,9 +56,15 @@ export async function planFormats(topicIds: string[]): Promise<{ planned: number
       "- Only use these channels: " + channels.map((c) => `${c} (${CHANNELS[c].formatLabel})`).join(", ") + ".",
       "- X thread: fast takes, risks, data; post within 24h for fast takes. Japan's strongest social channel.",
       "- LinkedIn carousel: surveys/statistics, case studies, checklists, step-by-step guides (visual, shareable).",
+      "- LinkedIn article: an expert's own 2,000–3,500 character article on LinkedIn (posted from a person's profile).",
+      "  LinkedIn is the most-cited source in AI answers for business questions, so use it for topics buyers ask",
+      "  AI about: how to choose, cost, comparisons, regulation explained, evergreen guides. Not for minor news.",
+      "- LinkedIn posts: 3–5 short posts (one idea each) cut from the article or hub over ~2 weeks. Add it",
+      "  whenever you choose a LinkedIn article; it can also stand alone for fast takes.",
+      "- Do not pick all three LinkedIn formats for one topic; carousel OR article (+ posts).",
       "- note.com post: opinions/trends, case studies, deeper essays for Japanese business readers.",
       "- Newsletter: include every hub and lead magnet (cheap, repeat visits).",
-      "- 2–4 spokes per topic; fewer for low-reach evergreen topics. Never a spoke without a reason.",
+      "- 2–5 spokes per topic; fewer for low-reach evergreen topics. Never a spoke without a reason.",
       firstWeekOfMonth && channels.includes("youtube")
         ? "- YouTube: this is the first week of the month: set video=true for exactly ONE topic, the best explainer candidate (a trend or regulation people need explained)."
         : "- YouTube: not this week (video=false for all).",
@@ -91,6 +97,13 @@ export async function planFormats(topicIds: string[]): Promise<{ planned: number
     const spokes = (it?.spokes ?? [])
       .filter((s): s is { channel: Channel; timing: string; why: string } => channels.includes(s.channel as Channel) && s.channel !== "youtube")
       .filter((s, k, a) => a.findIndex((x) => x.channel === s.channel) === k);
+    if (spokes.some((s) => s.channel === "linkedin_article")) {
+      const c = spokes.findIndex((s) => s.channel === "linkedin");
+      if (c >= 0) spokes.splice(c, 1); // article replaces the carousel
+      if (channels.includes("linkedin_posts") && !spokes.some((s) => s.channel === "linkedin_posts")) {
+        spokes.push({ channel: "linkedin_posts", timing: "days 2–14, 2–3 a week", why: "Short posts cut from the article keep the expert visible and point to it." });
+      }
+    }
     if (channels.includes("newsletter") && !spokes.some((s) => s.channel === "newsletter")) spokes.push({ channel: "newsletter", timing: "next newsletter", why: "Every hub goes in the newsletter for repeat visits." });
     const video = !!it?.video && firstWeekOfMonth && channels.includes("youtube") && !videoUsed;
     if (video) {

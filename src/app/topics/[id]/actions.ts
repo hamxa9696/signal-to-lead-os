@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { ensurePromptPack, markReady, rerunReview, saveDraft, DRAFTED_BY, type DraftedBy } from "@/lib/content/workflow";
 import { pushDraftToPayload } from "@/lib/content/publish";
+import { sql } from "@/lib/db";
 
 export type ActionState = { ok: boolean; message: string } | null;
 
@@ -11,6 +12,17 @@ const fail = (err: unknown): ActionState => ({ ok: false, message: (err as Error
 export async function rebuildPackAction(form: FormData): Promise<void> {
   const id = String(form.get("topicId"));
   await ensurePromptPack(id, true);
+  revalidatePath(path(id));
+}
+
+/** Pick the expert who writes this topic ("" = automatic by service), then rebuild the prompt. */
+export async function setAuthorAction(form: FormData): Promise<void> {
+  const id = String(form.get("topicId"));
+  const author = String(form.get("authorId") ?? "");
+  if (!/^[0-9a-f-]{36}$/.test(id)) return;
+  await sql`update topics set author_id = ${/^[0-9a-f-]{36}$/.test(author) ? author : null} where id = ${id}`;
+  const [{ has }] = await sql<{ has: boolean }[]>`select exists(select 1 from briefs where topic_id = ${id}) as has`;
+  if (has) await ensurePromptPack(id, true);
   revalidatePath(path(id));
 }
 

@@ -31,13 +31,15 @@ export type MagnetType = keyof typeof MAGNET_TYPES;
 
 export const CHANNELS = {
   x: { label: "X", format: "x_thread", formatLabel: "X thread", hours: 0.5, utm: { source: "x", medium: "social" } },
-  linkedin: { label: "LinkedIn", format: "carousel", formatLabel: "LinkedIn carousel", hours: 1, utm: { source: "linkedin", medium: "social" } },
+  linkedin: { label: "LinkedIn carousel", format: "carousel", formatLabel: "LinkedIn carousel", hours: 1, utm: { source: "linkedin", medium: "social" } },
+  linkedin_article: { label: "LinkedIn article", format: "li_article", formatLabel: "LinkedIn article (expert)", hours: 1.5, utm: { source: "linkedin", medium: "social" } },
+  linkedin_posts: { label: "LinkedIn posts", format: "li_posts", formatLabel: "LinkedIn post series (3–5)", hours: 0.75, utm: { source: "linkedin", medium: "social" } },
   note: { label: "note.com", format: "note_post", formatLabel: "note.com post", hours: 1, utm: { source: "note", medium: "referral" } },
   newsletter: { label: "Newsletter", format: "newsletter", formatLabel: "Newsletter blurb", hours: 0.3, utm: { source: "newsletter", medium: "email" } },
   youtube: { label: "YouTube (monthly)", format: "youtube_script", formatLabel: "YouTube explainer script", hours: 4, utm: { source: "youtube", medium: "video" } },
 } as const;
 export type Channel = keyof typeof CHANNELS;
-export const DEFAULT_CHANNELS: Channel[] = ["x", "linkedin", "note", "newsletter", "youtube"];
+export const DEFAULT_CHANNELS: Channel[] = ["x", "linkedin", "linkedin_article", "linkedin_posts", "note", "newsletter", "youtube"];
 
 export async function enabledChannels(): Promise<Channel[]> {
   const v = await getSetting<Channel[]>("channels").catch(() => null);

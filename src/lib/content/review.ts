@@ -3,6 +3,7 @@ import "server-only";
 import { z } from "zod";
 import { generateJson } from "@/lib/gemini";
 import type { Check } from "./checks";
+import { citability, type Citability } from "./citability";
 import type { ParsedDraft } from "./draft";
 import type { Knowledge } from "./knowledge";
 import type { TopicFull } from "./topic";
@@ -33,6 +34,8 @@ export type ReviewResult = {
   passed: boolean;
   reasons: string[];
   model_note: string;
+  /** How quotable the draft is for AI search (articles only; older reviews don't have it). */
+  citability?: Citability | null;
 };
 
 function prompt(d: ParsedDraft, t: TopicFull, k: Knowledge): string {
@@ -87,7 +90,8 @@ export async function reviewDraft(d: ParsedDraft, t: TopicFull, k: Knowledge, ch
     const low = ai.scores.filter((s) => s.score < 3).map((s) => s.id);
     if (low.length) reasons.push(`checklist below 3/5: ${low.join(", ")}`);
   }
-  return { ai, aiError, checks, passed: reasons.length === 0, reasons, model_note: "Gemini review (cross-model)" };
+  const cite = t.kind === "article" ? citability(d.body, d.frontmatter.title ?? "") : null;
+  return { ai, aiError, checks, passed: reasons.length === 0, reasons, model_note: "Gemini review (cross-model)", citability: cite };
 }
 
 /** Prompt to paste back into the same ChatGPT/Claude conversation to fix the draft. */
@@ -103,6 +107,13 @@ export function buildRevisionPrompt(r: ReviewResult): string {
       ? [
           "## Editor's issues",
           ...issues.map((i, n) => `${n + 1}. [${i.severity}] 「${i.quote}」: ${i.problem}${i.fix ? `\n   → 修正案: ${i.fix}` : ""}`),
+          "",
+        ]
+      : []),
+    ...(r.citability && r.citability.score < 85
+      ? [
+          `## Make it easier for AI search to quote (citability ${r.citability.score}/100)`,
+          ...r.citability.parts.filter((p) => p.points < p.max * 0.7).map((p) => `- ${p.tip} (now: ${p.detail})`),
           "",
         ]
       : []),

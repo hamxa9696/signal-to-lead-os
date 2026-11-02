@@ -1,5 +1,6 @@
 import { loadTargeting, TIER_LABEL, type Industry, type Persona, type Service } from "@/lib/targeting";
-import { deleteIndustry, deletePersona, saveChannels, saveIndustry, savePersona, saveService } from "./actions";
+import { deleteExpert, deleteIndustry, deletePersona, saveChannels, saveExpert, saveIndustry, savePersona, saveService } from "./actions";
+import { loadExperts, type Expert } from "@/lib/experts";
 import { CHANNELS, enabledChannels, type Channel } from "@/lib/formats";
 import { Submit } from "./submit";
 
@@ -14,7 +15,7 @@ const PRIORITY_STYLE: Record<Industry["priority"], string> = {
 };
 
 export default async function AudiencePage() {
-  const [t, channels] = await Promise.all([loadTargeting(), enabledChannels()]);
+  const [t, channels, experts] = await Promise.all([loadTargeting(), enabledChannels(), loadExperts()]);
   const activeIndustries = t.industries.filter((i) => i.active);
   const activeServices = t.services.filter((s) => s.active);
   return (
@@ -42,6 +43,15 @@ export default async function AudiencePage() {
           ))}
           <span className="ml-auto"><Submit label="Save channels" /></span>
         </form>
+      </section>
+
+      <section aria-labelledby="experts" className="flex flex-col gap-3">
+        <SectionHead id="experts" title="Experts (authors)"
+          help="Named people who write and post the content. AI search cites individual LinkedIn profiles about 3× more than company pages, so every prompt is written in one expert's voice with their byline. Each topic gets the first expert who covers its service (or pick one on the topic)." />
+        <div className="grid gap-3 md:grid-cols-2">
+          {experts.map((e) => <ExpertCard key={e.id} e={e} services={activeServices} />)}
+          <ExpertCard e={null} services={activeServices} />
+        </div>
       </section>
 
       <section aria-labelledby="personas" className="flex flex-col gap-3">
@@ -129,6 +139,43 @@ function PersonaCard({ p, industries, services }: { p: Persona | null; industrie
         )}
         {p && <Submit label="Delete" danger formAction={deletePersona} />}
         <Submit label={p ? "Save" : "Add persona"} />
+      </div>
+    </form>
+  );
+}
+
+function ExpertCard({ e, services }: { e: Expert | null; services: Service[] }) {
+  return (
+    <form action={saveExpert} className={`card flex flex-col gap-3 p-4 ${e ? "" : "border-dashed bg-transparent shadow-none"}`}>
+      <input type="hidden" name="id" value={e?.id ?? ""} />
+      <span className="text-sm font-semibold">{e ? e.name : "Add an expert"}</span>
+      <div className="grid grid-cols-2 gap-2">
+        <label className={label}>
+          Name (as in bylines)
+          <input name="name" defaultValue={e?.name ?? ""} required className={`${input} mt-1 normal-case tracking-normal`} placeholder="例: 山田 太郎" />
+        </label>
+        <label className={label}>
+          Role
+          <input name="role" defaultValue={e?.role ?? ""} lang="ja" className={`${input} mt-1 normal-case tracking-normal`} placeholder="例: ブロックチェーン事業責任者" />
+        </label>
+      </div>
+      <label className={label}>
+        Short bio (why their view counts)
+        <textarea name="bio" defaultValue={e?.bio ?? ""} rows={2} lang="ja" className={`${input} mt-1 normal-case tracking-normal`} placeholder="例: 金融機関向けSTO基盤の設計を10年以上担当。" />
+      </label>
+      <label className={label}>
+        LinkedIn profile URL
+        <input name="linkedin_url" type="url" defaultValue={e?.linkedin_url ?? ""} className={`${input} mt-1 normal-case tracking-normal`} placeholder="https://www.linkedin.com/in/…" />
+      </label>
+      <Checks title="Speaks for these services (none = any topic)" name="service_ids" options={services.map((s) => ({ value: s.id, label: s.name_ja.replace(/サービス$/, "") }))} picked={e?.service_ids ?? []} />
+      <div className="mt-auto flex items-center gap-2 border-t border-line pt-3">
+        {e && (
+          <label className="mr-auto flex items-center gap-1.5 text-[13px] text-muted">
+            <input type="checkbox" name="active" defaultChecked={e.active} className="accent-accent" /> Active
+          </label>
+        )}
+        {e && <Submit label="Delete" danger formAction={deleteExpert} />}
+        <Submit label={e ? "Save" : "Add expert"} />
       </div>
     </form>
   );

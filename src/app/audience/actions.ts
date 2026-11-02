@@ -63,3 +63,27 @@ export async function saveChannels(form: FormData): Promise<void> {
   await setSetting("channels", picked);
   done();
 }
+
+export async function saveExpert(form: FormData): Promise<void> {
+  const id = str(form, "id");
+  const name = str(form, "name");
+  if (!name) return;
+  const li = str(form, "linkedin_url");
+  const v = {
+    name,
+    role: str(form, "role") || null,
+    bio: str(form, "bio") || null,
+    linkedin_url: /^https:\/\/([a-z]+\.)?linkedin\.com\//i.test(li) ? li.slice(0, 300) : null,
+    service_ids: form.getAll("service_ids").map(String).filter((s) => UUID.test(s)),
+    active: id ? form.get("active") === "on" : true,
+  };
+  if (UUID.test(id)) await sql`update experts set ${sql(v)} where id = ${id}`;
+  else await sql`insert into experts ${sql(v)}`;
+  done();
+}
+
+export async function deleteExpert(form: FormData): Promise<void> {
+  const id = str(form, "id");
+  if (UUID.test(id)) await sql`delete from experts where id = ${id}`;
+  done();
+}

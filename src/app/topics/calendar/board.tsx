@@ -41,7 +41,7 @@ export function CalendarBoard(p: {
   const [msg, setMsg] = useState<string | null>(null);
 
   const visible = useMemo(() => items.filter((i) =>
-    channels.has(i.kind === "hub" ? "hub" : i.channel!) && (!i.slot || slots.has(i.slot)) &&
+    channels.has(i.kind === "hub" ? "hub" : i.channel!.startsWith("linkedin") ? "linkedin" : i.channel!) && (!i.slot || slots.has(i.slot)) &&
     (showUnapproved || i.state !== "unapproved") && (showDone || (i.state !== "live" && i.state !== "posted"))), [items, channels, slots, showUnapproved, showDone]);
   const byDay = useMemo(() => {
     const m = new Map<string, CalItem[]>();
