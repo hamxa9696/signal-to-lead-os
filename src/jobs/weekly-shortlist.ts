@@ -62,6 +62,7 @@ function buildPrompt(p: {
   worked: string[];
   results?: string;
   trending?: string[];
+  geoGaps?: string[];
 }): string {
   return [
     "You are the content strategist for Renesis Tech Japan (renesistech.jp), an AI-native engineering firm",
@@ -108,6 +109,7 @@ function buildPrompt(p: {
       : ["- (none yet — Search Console not connected or no data)"]),
     "",
     p.results ? `${p.results}\n` : "",
+    p.geoGaps?.length ? `QUESTIONS BUYERS ASK AI ASSISTANTS THAT WE HAVE NO GOOD PAGE FOR (at least one evergreen topic should answer one of these, with a よくある質問 section):\n${p.geoGaps.join("\n")}\n` : "",
     p.trending?.length ? `LIKELY TO TREND IN THE NEXT 7 DAYS (forecast from signals; the fast take and at least one evergreen topic should use these):\n${p.trending.join("\n")}\n` : "",
     "WHAT WORKED ON renesistech.jp (last 28 days; do more of this, without duplicating it):",
     ...(p.worked.length ? p.worked.map((w) => `- ${w}`) : ["- (no performance data yet)"]),
@@ -209,6 +211,11 @@ export function makeWeeklyShortlist(opts: { force?: boolean } = {}): Job {
           where window_start = (select max(window_start) from trend_forecasts) and direction in ('rising', 'emerging')
           order by p_rise desc limit 12`.catch(() => []),
       ]);
+      const geoRows = await sql<{ question: string; demand: number; score: number | null }[]>`
+        select q.question, q.demand, r.score from geo_questions q left join geo_readiness r on r.question_id = q.id
+        where q.week_of = (select max(week_of) from geo_questions) and coalesce(r.score, 0) < 50
+        order by q.demand desc limit 8`.catch(() => []);
+      const geoGaps = geoRows.map((r) => `- ${r.question} (demand ${r.demand}/100, our readiness ${r.score ?? 0}/100)`);
       const trending = trendRows.map((r) => `- ${r.term} (${r.direction}: ${r.last_7d} → ~${r.predicted} articles; ${(r.drivers ?? [])[0] ?? ""})`);
 
       const { topics } = await generateJson(
@@ -222,6 +229,7 @@ export function makeWeeklyShortlist(opts: { force?: boolean } = {}): Job {
           worked,
           results,
           trending,
+          geoGaps,
         }),
         Result,
         { temperature: 0.5 },

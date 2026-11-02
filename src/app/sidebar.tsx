@@ -18,6 +18,7 @@ const ICONS: Record<string, React.ReactNode> = {
   audience: <path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21v-1a6 6 0 0 1 12 0v1M16 3.5a4 4 0 0 1 0 7.5M22 21v-1a6 6 0 0 0-4-5.6" />,
   categories: <path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" />,
   forecast: <path d="M3 17l5-5 4 3 7-8M15 7h4v4" />,
+  geo: <path d="M12 3a9 9 0 1 0 9 9M12 3v4M12 3a9 9 0 0 1 9 9h-4M8 12a4 4 0 1 0 4-4" />,
   sources: <path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16M5 19h.01" />,
   knowledge: <path d="M5 4h11l3 3v13H5zM9 10h6M9 14h6" />,
   status: (
@@ -35,6 +36,7 @@ const GROUPS = [
       { href: "/performance", label: "Performance", icon: "performance" },
       { href: "/topics", label: "Topics & signals", icon: "topics", also: ["/signals"] },
       { href: "/forecast", label: "Trend forecast", icon: "forecast" },
+      { href: "/geo", label: "AI search (GEO)", icon: "geo" },
       { href: "/review", label: "Monthly review", icon: "review" },
     ],
   },

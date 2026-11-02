@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { sql } from "@/lib/db";
 import { jobGroups, runJob, type RunOutcome } from "@/jobs/registry";
 
-const UI_JOBS = ["collect-feeds", "collect-gsc", "collect-ga4", "analyze", "sort", "deepen", "cluster", "formats", "forecast", "research", "shortlist", "monthly-review"] as const;
+const UI_JOBS = ["collect-feeds", "collect-gsc", "collect-ga4", "analyze", "sort", "deepen", "cluster", "formats", "forecast", "geo", "research", "shortlist", "monthly-review"] as const;
 
 export async function runJobAction(_prev: RunOutcome[] | null, form: FormData): Promise<RunOutcome[]> {
   const name = String(form.get("job"));

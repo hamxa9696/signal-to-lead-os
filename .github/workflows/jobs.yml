@@ -14,7 +14,7 @@ on:
         required: true
         default: daily
         type: choice
-        options: [daily, weekly, monthly, collect-feeds, collect-gsc, collect-ga4, analyze, sort, deepen, cluster, formats, forecast, research, shortlist, sync-publications, sync-brevo]
+        options: [daily, weekly, monthly, collect-feeds, collect-gsc, collect-ga4, analyze, sort, deepen, cluster, formats, forecast, geo, research, shortlist, sync-publications, sync-brevo]
       force:
         description: "Regenerate this week's shortlist even if it exists"
         type: boolean
@@ -36,6 +36,10 @@ jobs:
       GSC_SITE_URL: ${{ secrets.GSC_SITE_URL }}
       PAYLOAD_API_KEY: ${{ secrets.PAYLOAD_API_KEY }}
       BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+      TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+      PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GEMINI_GROUNDING: ${{ secrets.GEMINI_GROUNDING }}
     steps:
       - name: Check configuration
         id: cfg

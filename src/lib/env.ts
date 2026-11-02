@@ -3,6 +3,12 @@
 export const env = {
   databaseUrl: process.env.DATABASE_URL ?? "",
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
+  // GEO (AI search) engines. Each one switches on when its key is set (Tavily has a free tier).
+  tavilyApiKey: process.env.TAVILY_API_KEY ?? "",
+  perplexityApiKey: process.env.PERPLEXITY_API_KEY ?? "",
+  openaiApiKey: process.env.OPENAI_API_KEY ?? "",
+  openaiGeoModel: process.env.OPENAI_GEO_MODEL ?? "gpt-4.1-mini",
+  geminiGrounding: process.env.GEMINI_GROUNDING ?? "", // "on" once billing gives the key a grounding allowance
   geminiModel: process.env.GEMINI_MODEL ?? "gemini-3.5-flash",
 
   // Google service account JSON (whole file contents, one line) — used for GA4 + Search Console.

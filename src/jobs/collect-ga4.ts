@@ -62,7 +62,8 @@ export const collectGa4: Job = {
     // Full backfill on first run, and again while no form fill has ever been stored (so a change to
     // FORM_FILL_EVENTS fills in history instead of only the last week).
     const [{ any }] = await sql<{ any: boolean }[]>`
-      select exists(select 1 from metrics_daily where channel = 'website' and leads > 0) as any`;
+      select exists(select 1 from metrics_daily where channel = 'website' and leads > 0)
+         and exists(select 1 from metrics_daily where channel = 'website' and page_path = '*' and source_medium <> '') as any`;
     const startDate = max && any ? addDays(endDate, -REFRESH_DAYS) : addDays(endDate, -BACKFILL_DAYS);
     const dateRanges = [{ startDate, endDate }];
 
@@ -95,6 +96,18 @@ export const collectGa4: Job = {
     const site = await report({ dateRanges, dimensions: [{ name: "date" }], metrics: METRICS.map((name) => ({ name })) });
     for (const r of site) add(ga4Date(r.dimensionValues[0].value), SITE_PATH, "", r.metricValues.map((v) => Number(v.value)), 0);
 
+    // Site-wide sessions and form fills per source / medium (accurate per-source totals, e.g. which
+    // AI assistants send visitors). Stored with page_path = '*'.
+    const [siteBySource, leadsBySource] = await Promise.all([
+      report({ dateRanges, dimensions: [{ name: "date" }, { name: "sessionSourceMedium" }], metrics: METRICS.map((name) => ({ name })) }),
+      report({
+        dateRanges, dimensions: [{ name: "date" }, { name: "sessionSourceMedium" }], metrics: [{ name: "eventCount" }],
+        dimensionFilter: { filter: { fieldName: "eventName", inListFilter: { values: FORM_FILL_EVENTS } } },
+      }),
+    ]);
+    for (const r of siteBySource) add(ga4Date(r.dimensionValues[0].value), SITE_PATH, r.dimensionValues[1].value || "(not set)", r.metricValues.map((v) => Number(v.value)), 0);
+    for (const r of leadsBySource) add(ga4Date(r.dimensionValues[0].value), SITE_PATH, r.dimensionValues[1].value || "(not set)", METRICS.map(() => 0), Number(r.metricValues[0].value));
+
     // Form submissions (fired by the website's own forms) per page.
     const leads = await report({
       dateRanges,
@@ -122,7 +135,7 @@ export const collectGa4: Job = {
         engaged_sessions: engaged,
         avg_engagement_sec: users ? Math.round((duration / users) * 100) / 100 : 0,
         key_events: keyEvents,
-        leads: a.sm === "" ? a.leads : null,
+        leads: a.sm === "" || a.path === SITE_PATH ? a.leads : null,
       };
     });
 
