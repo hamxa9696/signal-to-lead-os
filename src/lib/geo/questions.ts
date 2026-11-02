@@ -1,12 +1,14 @@
-// The weekly set of Japanese buyer questions to track in AI assistants. Built from free demand
-// signals; ~70% carried over from last week so trends stay comparable.
+// The weekly set of Japanese buyer questions to track in AI assistants, grouped into 4 topic
+// clusters of ~8 questions (the core themes Renesis should own). Built from free demand signals;
+// clusters and ~70% of questions carry over week to week so trends stay comparable.
 import { z } from "zod";
 import { sql } from "../db";
 import { generateJson } from "../gemini";
 import { googleSuggest } from "../keywords";
 import { addDays, weekOf } from "../week";
 
-const SET_SIZE = 25;
+const SET_SIZE = 32;
+const CLUSTERS = 4;
 const MANUAL = 10;
 const PATTERNS = ["とは", "おすすめ", "比較", "費用", "会社", "事例"];
 
@@ -14,7 +16,8 @@ const Out = z.object({
   questions: z.array(z.object({
     question: z.string().min(6),
     category: z.string().nullable().catch(null),
-    intent: z.enum(["informational", "commercial", "transactional"]).catch("informational"),
+    cluster: z.string().nullable().catch(null),
+    intent: z.preprocess((v) => (v === "commercial" ? "comparative" : v), z.enum(["informational", "comparative", "transactional", "navigational"]).catch("informational")),
     keywords: z.array(z.string()).catch([]),
     demand: z.number().min(0).max(100).catch(30),
     evidence: z.array(z.string()).catch([]),
@@ -28,7 +31,7 @@ export async function buildQuestionSet(force = false): Promise<{ week: string; q
   if (n && !force) return { week, questions: n };
 
   const [last, topicQs, gsc, trends, cats] = await Promise.all([
-    sql<{ question: string }[]>`select question from geo_questions where week_of = (select max(week_of) from geo_questions where week_of < ${week}) order by demand desc`,
+    sql<{ question: string; cluster: string | null }[]>`select question, cluster from geo_questions where week_of = (select max(week_of) from geo_questions where week_of < ${week}) order by cluster, demand desc`,
     sql<{ q: string }[]>`
       select distinct q from (
         select jsonb_array_elements_text(research->'questions') as q from topics where week_of >= ${addDays(week, -14)}::date and research is not null
@@ -62,13 +65,19 @@ export async function buildQuestionSet(force = false): Promise<{ week: string; q
       "(ChatGPT, Gemini, Perplexity, Copilot), e.g. 「生成AIの導入支援を外注するなら、どんな会社を選べばいい？」.",
       "Rules:",
       `- Keep about 70% of LAST WEEK'S QUESTIONS unchanged (so weekly trends compare like with like); replace the weakest with rising demand.`,
-      "- Mix intents: ~40% commercial (choosing a vendor/service, costs, comparisons), the rest informational/transactional.",
+      `- Group them into exactly ${CLUSTERS} topic CLUSTERS of 7–10 questions each: the core themes Renesis should own in AI answers`,
+      "  (e.g. 「生成AI導入支援」「STO・セキュリティトークン」「ブロックチェーン開発会社選び」). cluster = a short Japanese name.",
+      "  Reuse LAST WEEK'S cluster names exactly unless a theme clearly lost demand.",
+      "- intent (match what the AI must do before it can cite a page):",
+      "  informational = explain something (〜とは / 仕組み / 規制); comparative = compare or choose (比較 / おすすめ / 選び方 / どの会社);",
+      "  transactional = ready to act (費用 / 見積もり / 依頼 / 導入手順); navigational = asks about a named company (Renesis Tech Japanの評判 など).",
+      "  Mix per cluster: ~3 informational, ~3 comparative, ~2 transactional; at most 2 navigational questions in the whole set.",
       "- Spread across categories: " + cats.map((c) => c.slug).join(", ") + ". category = one of these slugs.",
       "- keywords: 2–4 Japanese terms to find our matching page (e.g. [\"生成AI\", \"導入支援\"]).",
       "- demand 0–100 from the evidence below (Search Console impressions, Google suggestions, forecast). evidence: short ENGLISH notes.",
       `- manual = true for exactly ${MANUAL} questions with the highest commercial value (checked by hand each week).`,
       "",
-      "LAST WEEK'S QUESTIONS:", ...(last.length ? last.map((x) => `- ${x.question}`) : ["- (none: first week)"]),
+      "LAST WEEK'S QUESTIONS:", ...(last.length ? last.map((x) => `- [${x.cluster ?? "no cluster"}] ${x.question}`) : ["- (none: first week)"]),
       "",
       "SEARCH CONSOLE QUESTION-LIKE QUERIES (28d impressions):", ...(gsc.length ? gsc.map((g) => `- ${g.query} (${g.impressions})`) : ["- (no data yet)"]),
       "",
@@ -78,7 +87,7 @@ export async function buildQuestionSet(force = false): Promise<{ week: string; q
       "",
       "READER QUESTIONS FROM OUR TOPICS:", ...topicQs.map((t) => `- ${t.q}`),
       "",
-      'Return ONLY JSON: {"questions":[{"question":"","category":null,"intent":"commercial","keywords":[],"demand":50,"evidence":[],"manual":false}]}',
+      'Return ONLY JSON: {"questions":[{"question":"","cluster":"","category":null,"intent":"comparative","keywords":[],"demand":50,"evidence":[],"manual":false}]}',
     ].join("\n"),
     Out,
     { temperature: 0.3 },
@@ -92,7 +101,7 @@ export async function buildQuestionSet(force = false): Promise<{ week: string; q
       const manual = q.manual && manualLeft-- > 0;
       await tx`
         insert into geo_questions ${tx({
-          week_of: week, question: q.question, category_id: (q.category && catId.get(q.category)) || null, intent: q.intent,
+          week_of: week, question: q.question, cluster: q.cluster?.slice(0, 40) ?? null, category_id: (q.category && catId.get(q.category)) || null, intent: q.intent,
           demand: Math.round(q.demand), evidence: tx.json(q.evidence), keywords: q.keywords.slice(0, 5), manual,
         })}
         on conflict (week_of, question) do nothing`;

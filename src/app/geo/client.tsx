@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { saveManualCheck, topicFromQuestion } from "./actions";
+import { saveLinkedinStats, saveManualCheck, topicFromQuestion } from "./actions";
 
 const OPTS = [
   { k: "cited", l: "Cited", cls: "border-good bg-good-soft text-good" },
@@ -41,5 +41,36 @@ export function MakeTopic({ questionId }: { questionId: string }) {
       className="inline-flex items-center rounded-md border border-sprout/40 bg-sprout-soft px-2 py-0.5 text-[11.5px] font-semibold text-sprout hover:bg-sprout-soft/70 disabled:opacity-60">
       {pending ? "Creating…" : state?.err ? "Try again" : "+ Make topic"}
     </button>
+  );
+}
+
+/** One LinkedIn post's engagement, typed in from LinkedIn analytics; saves on blur. */
+export function LinkedinStats({ topicId, channel, initial }: {
+  topicId: string; channel: string;
+  initial: { impressions: number | null; reactions: number | null; comments: number | null; shares: number | null };
+}) {
+  const [v, setV] = useState(initial);
+  const [state, setState] = useState<"" | "saving" | "saved" | "error">("");
+  const [, start] = useTransition();
+  const save = (next: typeof v) => {
+    setState("saving");
+    start(async () => {
+      const r = await saveLinkedinStats(topicId, channel, next).catch(() => ({ ok: false }));
+      setState(r.ok ? "saved" : "error");
+    });
+  };
+  const keys = ["impressions", "reactions", "comments", "shares"] as const;
+  return (
+    <>
+      {keys.map((k) => (
+        <td key={k} className="px-1 text-right">
+          <input type="number" min={0} inputMode="numeric" aria-label={k} value={v[k] ?? ""}
+            onChange={(e) => setV({ ...v, [k]: e.target.value === "" ? null : Number(e.target.value) })}
+            onBlur={() => { if (v[k] !== initial[k]) save(v); }}
+            className="w-[72px] rounded-md border border-line-strong bg-surface px-1.5 py-0.5 text-right font-mono text-[12px] focus:border-accent focus:outline-none" />
+        </td>
+      ))}
+      <td className="w-14 pl-1 text-[11px] text-faint">{state === "saving" ? "…" : state === "saved" ? "Saved" : state === "error" ? "Failed" : ""}</td>
+    </>
   );
 }
