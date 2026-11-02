@@ -38,7 +38,8 @@ export async function topicFromQuestion(questionId: string): Promise<{ ok: boole
             ${sql.json({ demand: 20, demand_source: "estimate", gsc_impressions_28d: 0, fit: 20, freshness: 10, performance: 5, evergreen: true, performance_note: "GEO gap" })})
     returning id`;
   await planFormats([row.id]).catch(() => null);
-  revalidatePath("/geo");
+  revalidatePath("/trends/ai-search");
+  revalidatePath("/performance");
   revalidatePath("/topics");
   return { ok: true, id: row.id };
 }
@@ -51,6 +52,7 @@ export async function saveLinkedinStats(topicId: string, channel: string, stats:
     update topic_spokes set impressions = ${num(stats.impressions)}, reactions = ${num(stats.reactions)},
       comments = ${num(stats.comments)}, shares = ${num(stats.shares)}
     where topic_id = ${topicId} and channel = ${channel}`;
-  revalidatePath("/geo");
+  revalidatePath("/trends/ai-search");
+  revalidatePath("/performance");
   return { ok: true };
 }

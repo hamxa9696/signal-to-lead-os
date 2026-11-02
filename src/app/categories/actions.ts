@@ -13,7 +13,7 @@ const ids = (f: FormData, k: string) => f.getAll(k).map(String).filter((x) => UU
 const list = (s: string) => s.split(/[,、\n]/).map((x) => x.trim()).filter(Boolean).slice(0, 12);
 const done = () => {
   revalidatePath("/categories");
-  revalidatePath("/signals");
+  revalidatePath("/trends/signals");
 };
 
 export async function saveCategory(form: FormData): Promise<void> {

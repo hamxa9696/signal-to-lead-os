@@ -2,11 +2,10 @@ import Link from "next/link";
 import { sql } from "@/lib/db";
 import { loadTaxonomy } from "@/lib/taxonomy";
 import { loadTargeting } from "@/lib/targeting";
-import { PageHeader } from "../page-header";
+import { PageHeader } from "../../page-header";
 import { fmt, WhyPanel, type Row } from "./why-panel";
 import { StoriesList } from "./stories";
 import { SIGNAL_TYPES } from "@/lib/signal-types";
-import { TopicTabs } from "../topics/tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -78,7 +77,7 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
   const inSub = (id: string) => tree.filter((t) => t.subcategory_id === id).reduce((a, t) => a + t.n, 0);
   const none = tree.filter((t) => !t.category_id).reduce((a, t) => a + t.n, 0);
   const href = (p: { cat?: string; sub?: string; type?: string | null; view?: string }) =>
-    `/signals?${new URLSearchParams({
+    `/trends/signals?${new URLSearchParams({
       ...(status !== "analyzed" ? { status } : {}), ...(p.cat ? { cat: p.cat } : {}), ...(p.sub ? { sub: p.sub } : {}),
       ...((p.type === undefined ? typeKey : p.type) ? { type: (p.type === undefined ? typeKey : p.type)! } : {}),
       ...((p.view ?? q.view) === "articles" ? { view: "articles" } : {}),
@@ -94,7 +93,6 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
 
   return (
     <main className="page">
-      <TopicTabs current="signals" />
       <PageHeader
         eyebrow="What topics are built from"
         title="Signals"
@@ -103,7 +101,7 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
 
       <nav aria-label="Signal status" className="seg self-start">
         {TABS.map((t) => (
-          <Link prefetch={false} key={t.key} href={`/signals?${new URLSearchParams({ status: t.key, ...(q.cat ? { cat: q.cat } : {}), ...(q.sub ? { sub: q.sub } : {}) })}`} aria-current={t.key === status ? "page" : undefined} className={t.key === status ? "seg-on" : "seg-item"}>
+          <Link prefetch={false} key={t.key} href={`/trends/signals?${new URLSearchParams({ status: t.key, ...(q.cat ? { cat: q.cat } : {}), ...(q.sub ? { sub: q.sub } : {}) })}`} aria-current={t.key === status ? "page" : undefined} className={t.key === status ? "seg-on" : "seg-item"}>
             {t.label} <span className="font-mono text-[12px] text-faint">{n(t.key)}</span>
           </Link>
         ))}

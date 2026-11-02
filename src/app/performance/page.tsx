@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { TrendingKeywords } from "./trending";
 import { WhatWorks } from "./what-works";
-import { ForecastCard } from "./forecast-card";
+import { FixThese } from "./fix-these";
+import { GeoResults } from "../trends/ai-search/views";
 import { env, has } from "@/lib/env";
 import {
   contentEngine, dataEnd, groupPerformance, LEAD_WEIGHT, MIN_PIECES, performancePoints, sessionsSeries,
@@ -97,10 +97,17 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
             renesistech.jp · {range.label}
             {span ? <> · {fmtDay(span.start)} – {fmtDay(span.end)} vs {fmtDay(prevSpan!.start)} – {fmtDay(prevSpan!.end)}</> : null}
           </p>
-          <h1 className="page-title">Performance</h1>
+          <h1 className="page-title">Results</h1>
         </div>
         <RangeBar current={range.key} from={range.start} to={range.end} scope={showAll ? "all" : undefined} />
       </div>
+
+      <nav aria-label="On this page" className="-mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
+        <a href="#seo" className="font-medium text-accent hover:underline">Website &amp; Google</a>
+        <a href="#ai-search" className="font-medium text-accent hover:underline">AI search (GEO)</a>
+        <a href="#fix-these" className="font-medium text-accent hover:underline">Fix these</a>
+        <a href="#what-works" className="font-medium text-accent hover:underline">What works</a>
+      </nav>
 
       {(!span || span.end < range.end) && (
         <p className="-mt-2 text-[13px] text-muted">
@@ -110,7 +117,7 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
         </p>
       )}
 
-      <section aria-label="Key numbers" className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
+      <section id="seo" aria-label="Key numbers" className="scroll-mt-6 grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
         <Kpi label="Website sessions" value={n(cur.sessions)}><Delta now={cur.sessions} prev={prev.sessions} /></Kpi>
         <Kpi label="Search clicks" value={n(cur.clicks)}><Delta now={cur.clicks} prev={prev.clicks} /></Kpi>
         <Kpi label="Search impressions" value={compact(cur.impressions)}><Delta now={cur.impressions} prev={prev.impressions} /></Kpi>
@@ -149,21 +156,11 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
         </section>
       </div>
 
-      <Suspense fallback={<div className="card h-28 animate-pulse bg-subtle" aria-hidden="true" />}>
-        <ForecastCard />
-      </Suspense>
-
-      <Suspense fallback={<div className="card h-40 animate-pulse bg-subtle" aria-hidden="true" />}>
-        <TrendingKeywords
-          period={(["24h", "7d", "30d", "90d"] as const).find((p) => p === q.kwp) ?? "7d"}
-          cat={q.kw && /^[a-z0-9-]{1,40}$/.test(q.kw) ? q.kw : undefined}
-          baseQs={{ ...(range.key !== "28d" ? { range: range.key } : {}), ...(range.key === "custom" ? { from: range.start, to: range.end } : {}), ...(showAll ? { scope: "all" } : {}) }}
-        />
-      </Suspense>
-
-      <Suspense fallback={<div className="card h-40 animate-pulse bg-subtle" aria-hidden="true" />}>
-        <WhatWorks />
-      </Suspense>
+      <div id="what-works" className="scroll-mt-6">
+        <Suspense fallback={<div className="card h-40 animate-pulse bg-subtle" aria-hidden="true" />}>
+          <WhatWorks />
+        </Suspense>
+      </div>
 
       <div className="flex flex-wrap items-start gap-5">
         <section aria-label="Top content" className="card min-w-0 flex-[2_1_520px] overflow-hidden">
@@ -243,12 +240,29 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
                 <>Scoring stays neutral until a service has {MIN_PIECES}+ pieces live for a week. One lead counts as {LEAD_WEIGHT} sessions.</>
               )}
             </p>
-            <Link href="/review" className="inline-flex min-h-10 items-center self-start rounded-lg bg-white px-3.5 text-[13px] font-semibold text-ink hover:bg-subtle">
-              Open monthly review
+            <Link href="/performance#fix-these" className="inline-flex min-h-10 items-center self-start rounded-lg bg-white px-3.5 text-[13px] font-semibold text-ink hover:bg-subtle">
+              See what to fix
             </Link>
           </section>
         </div>
       </div>
+
+      <section id="ai-search" aria-labelledby="ai-search-h" className="flex scroll-mt-6 flex-col gap-4 border-t border-line pt-6">
+        <div>
+          <p className="eyebrow">AI assistants · ChatGPT, Gemini, Copilot, Perplexity</p>
+          <h2 id="ai-search-h" className="mt-1 text-lg font-semibold">AI search (GEO)</h2>
+        </div>
+        <Suspense fallback={<div className="card h-40 animate-pulse bg-subtle" aria-hidden="true" />}>
+          <GeoResults />
+        </Suspense>
+      </section>
+
+      <div className="border-t border-line pt-6">
+        <Suspense fallback={<div className="card h-40 animate-pulse bg-subtle" aria-hidden="true" />}>
+          <FixThese />
+        </Suspense>
+      </div>
+
     </main>
   );
 }

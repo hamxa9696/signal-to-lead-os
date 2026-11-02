@@ -2,9 +2,9 @@ import Link from "next/link";
 import { sql } from "@/lib/db";
 import { lastMonth, type SignalIndex } from "@/lib/signal-index";
 import { typeInfo } from "@/lib/signal-types";
-import { PageHeader } from "../page-header";
-import { RunButton } from "../run-button";
-import { CopyButton } from "../copy-button";
+import { PageHeader } from "../../page-header";
+import { RunButton } from "../../run-button";
+import { CopyButton } from "../../copy-button";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -33,7 +33,7 @@ export default async function SignalIndexPage({ searchParams }: { searchParams: 
       {reports.length > 1 && (
         <nav aria-label="Editions" className="flex flex-wrap gap-1.5">
           {reports.map((x) => (
-            <Link key={x.month} href={`/signal-index?m=${x.month}`} prefetch={false}
+            <Link key={x.month} href={`/trends/signal-index?m=${x.month}`} prefetch={false}
               className={`rounded-full border px-3 py-1 text-[12.5px] ${x.month === r?.month ? "border-accent bg-accent-soft text-accent-ink" : "border-line-strong text-muted hover:text-ink"}`}>
               {x.data.label_ja}
             </Link>

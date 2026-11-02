@@ -50,7 +50,7 @@ export function jobGroups(opts: { force?: boolean } = {}): Record<string, Job[]>
     "sync-brevo": [syncBrevo],
     "collect-ga4": [collectGa4],
     daily: [collectFeeds, collectGsc, collectGa4, analyzeSignals, sortSignals, deepenSignals, clusterStories, forecast, syncPublications, syncBrevo], // every morning
-    weekly: [geo, shortlist, planFormatsJob, researchTopics], // Monday, after daily
+    weekly: [geo, shortlist, planFormatsJob, researchTopics, monthlyReview], // Monday, after daily ("Fix these" refreshes weekly)
     "monthly-review": [monthlyReview],
     "signal-index": [signalIndex],
     monthly: [monthlyReview, signalIndex], // 2nd of the month

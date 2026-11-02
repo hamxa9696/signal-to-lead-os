@@ -4,10 +4,10 @@ import { sql } from "@/lib/db";
 import { ENGINES, enabledEngines, type EngineKey } from "@/lib/geo/engines";
 import { OUR_DOMAIN } from "@/lib/geo/check";
 import { aiTraffic, AI_SOURCES } from "@/lib/geo/traffic";
-import { PageHeader } from "../page-header";
-import { RunButton } from "../run-button";
-import { HoverCard } from "../hover-card";
-import { CopyButton } from "../copy-button";
+import { PageHeader } from "../../page-header";
+import { RunButton } from "../../run-button";
+import { HoverCard } from "../../hover-card";
+import { CopyButton } from "../../copy-button";
 import { LinkedinStats, MakeTopic, ManualCell } from "./client";
 import { competitors, diagnostics, leading, outcomes, MATURE_DAYS, type Slice } from "@/lib/geo/measure";
 import { CHANNELS, SLOTS, type Channel, type Slot } from "@/lib/formats";
@@ -28,49 +28,19 @@ const CH = { google: { l: "Google AI / Gemini", c: "#2F6B55" }, chatgpt: { l: "C
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const n = (v: number) => v.toLocaleString("en-US");
 
-export default async function GeoPage() {
-  const [{ week }] = await sql<{ week: string | null }[]>`select max(week_of)::text as week from geo_questions`;
-  const [questions, traffic, out, diag, comp, lead] = await Promise.all([
-    week
-      ? sql<Q[]>`
-          select q.id, q.question, q.intent, q.cluster, q.demand,
-                 (select max(p.published_at)::date::text from publications p where p.channel = 'website' and p.status = 'live' and p.page_path = r.page_path) as published_at, q.evidence, q.manual, c.name_en as cat, c.color,
-                 r.score, r.page_path, r.page_title, r.channels, r.gaps,
-                 coalesce((select json_agg(json_build_object('engine', g.engine, 'we_cited', g.we_cited, 'we_mentioned', g.we_mentioned, 'our_position', g.our_position,
-                             'quality', g.citation_quality, 'sentiment', g.sentiment, 'linkedin', g.linkedin_cited))
-                           from geo_checks g where g.question_id = q.id), '[]') as checks
-          from geo_questions q left join categories c on c.id = q.category_id left join geo_readiness r on r.question_id = q.id
-          where q.week_of = ${week} order by q.cluster nulls last, q.demand desc`
-      : Promise.resolve([] as Q[]),
-    aiTraffic(12),
-    outcomes(),
-    diagnostics(),
-    competitors(),
-    leading(),
-  ]);
-  const enabled = enabledEngines();
-  const ready = questions.filter((q) => (q.score ?? 0) >= 60).length;
-  const noPage = questions.filter((q) => !q.page_path).length;
+/** AI search results (Results page): leading indicators, outcomes, diagnostics, competitors, LinkedIn. */
+export async function GeoResults() {
+  const [traffic, out, diag, comp, lead] = await Promise.all([aiTraffic(12), outcomes(), diagnostics(), competitors(), leading()]);
   const lastAi = traffic.weeks.slice(-4).reduce((a, w) => a + w.sessions, 0);
   const prevAi = traffic.weeks.slice(-8, -4).reduce((a, w) => a + w.sessions, 0);
   const aiLeads = traffic.totals.reduce((a, t) => a + t.leads, 0);
   const today = new Date().toISOString().slice(0, 10);
   const mature = out.matureFrom != null && out.matureFrom <= today;
-  const clusters = [...new Set(questions.map((q) => q.cluster ?? "Unclustered"))];
-  const manual = questions.filter((q) => q.manual);
-
   return (
-    <main className="page">
-      <PageHeader
-        eyebrow={week ? `AI search · week of ${week} · Japan` : "AI search · Japan"}
-        title="GEO: AI search"
-        description="Whether ChatGPT, Gemini, Copilot and Perplexity cite renesistech.jp when Japanese buyers ask about your services: the questions they ask, who AI cites instead, how ready each page is, and the visitors AI sends."
-        actions={<RunButton job="geo" label="Rebuild this week's check" force />}
-      />
-
+    <>
       <div className={`rounded-xl border px-4 py-3 text-[13px] ${mature ? "border-line bg-surface text-muted" : "border-sprout/40 bg-sprout-soft text-ink"}`}>
         {out.firstCheck == null
-          ? <>No AI answers checked yet. Start with the weekly manual check below or connect a free engine (Tavily). Outcomes are judged after {MATURE_DAYS} days.</>
+          ? <>No AI answers checked yet. Start with the weekly manual check on <Link href="/trends/ai-search#manual-check" className="underline">Trends › AI search</Link> or connect a free engine (Tavily). Outcomes are judged after {MATURE_DAYS} days.</>
           : mature
             ? <>Outcomes compare the last 4 weeks with the 4 weeks before. AI tools take a median of ~7 days (up to ~5 weeks) to cite a new page, so read trends across windows, not single weeks.</>
             : <><b>Building the baseline.</b> First check {out.firstCheck}; outcomes become meaningful from <b>{out.matureFrom}</b>. Until then watch the leading indicators: flat citations in the first weeks are expected, not a verdict.</>}
@@ -161,10 +131,68 @@ export default async function GeoPage() {
             </tbody>
           </table>
           {!traffic.totals.some((t) => t.sessions) && <p className="mt-2 text-[12px] text-muted">No AI-assistant visits recorded yet. This is the baseline to grow from.</p>}
-          <p className="mt-3 text-[12px] text-muted">Questions with a ready page: <b className="text-ink">{ready}/{questions.length}</b> · {noPage} with no page at all</p>
         </section>
       </div>
 
+      <section id="linkedin" className="card scroll-mt-6 p-5">
+        <h2 className="text-base font-semibold">LinkedIn engagement (leading indicator)</h2>
+        <p className="mt-0.5 text-[12.5px] text-faint">
+          Posts marked as posted on the calendar in the last 60 days. Copy the numbers from each post&apos;s LinkedIn analytics about a week after posting;
+          they save as you leave the box. Highly cited posts usually draw 10+ thoughtful comments.
+        </p>
+        {lead.posts.length ? (
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[820px] text-[12.5px]">
+              <thead className="text-left text-[11px] text-faint">
+                <tr><th className="py-1 font-medium">Post</th><th className="font-medium">Author</th><th className="font-medium">Posted</th>
+                  <th className="px-1 text-right font-medium">Impressions</th><th className="px-1 text-right font-medium">Reactions</th><th className="px-1 text-right font-medium">Comments</th><th className="px-1 text-right font-medium">Shares</th><th /></tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {lead.posts.map((p) => (
+                  <tr key={`${p.topic_id}:${p.channel}`}>
+                    <td className="max-w-[320px] py-1.5 pr-3">
+                      <span className="mr-1.5 rounded bg-subtle px-1.5 text-[11px] text-muted">{CHANNELS[p.channel as Channel]?.label ?? p.channel}</span>
+                      {p.post_url ? <a href={p.post_url} target="_blank" rel="noreferrer" lang="ja" className="text-accent hover:underline">{p.title}</a> : <span lang="ja">{p.title}</span>}
+                    </td>
+                    <td className="text-muted">{p.author ?? "—"}</td>
+                    <td translate="no" className="font-mono text-muted">{p.posted_at.slice(5)}</td>
+                    <LinkedinStats topicId={p.topic_id} channel={p.channel} initial={{ impressions: p.impressions, reactions: p.reactions, comments: p.comments, shares: p.shares }} />
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : <p className="mt-2 text-[13px] text-muted">No LinkedIn posts marked as posted yet. Mark them on the <Link href="/topics/calendar" className="underline">calendar</Link> and they appear here.</p>}
+      </section>
+
+    </>
+  );
+}
+
+/** What buyers ask AI assistants (Trends › AI search): questions by cluster, readiness, the manual check, engines. */
+export async function GeoQuestions() {
+  const [{ week }] = await sql<{ week: string | null }[]>`select max(week_of)::text as week from geo_questions`;
+  const questions = await (
+    week
+      ? sql<Q[]>`
+          select q.id, q.question, q.intent, q.cluster, q.demand,
+                 (select max(p.published_at)::date::text from publications p where p.channel = 'website' and p.status = 'live' and p.page_path = r.page_path) as published_at, q.evidence, q.manual, c.name_en as cat, c.color,
+                 r.score, r.page_path, r.page_title, r.channels, r.gaps,
+                 coalesce((select json_agg(json_build_object('engine', g.engine, 'we_cited', g.we_cited, 'we_mentioned', g.we_mentioned, 'our_position', g.our_position,
+                             'quality', g.citation_quality, 'sentiment', g.sentiment, 'linkedin', g.linkedin_cited))
+                           from geo_checks g where g.question_id = q.id), '[]') as checks
+          from geo_questions q left join categories c on c.id = q.category_id left join geo_readiness r on r.question_id = q.id
+          where q.week_of = ${week} order by q.cluster nulls last, q.demand desc`
+      : Promise.resolve([] as Q[])
+  );
+  const enabled = enabledEngines();
+  const ready = questions.filter((q) => (q.score ?? 0) >= 60).length;
+  const noPage = questions.filter((q) => !q.page_path).length;
+  const clusters = [...new Set(questions.map((q) => q.cluster ?? "Unclustered"))];
+  const manual = questions.filter((q) => q.manual);
+  return (
+    <>
+      <p className="-mt-2 text-[13px] text-muted">{questions.length} questions{week ? ` · week of ${week}` : ""} · <b className="text-ink">{ready}</b> have a page ready to be cited · <b className="text-ink">{noPage}</b> have no page at all. Results (citations, share of voice, AI visits) are on <Link href="/performance#ai-search" className="underline">Results</Link>.</p>
       <section className="card overflow-x-auto">
         <div className="px-5 pt-5 pb-3">
           <h2 className="text-base font-semibold">This week&apos;s questions by topic cluster: demand, readiness and results</h2>
@@ -242,38 +270,7 @@ export default async function GeoPage() {
         </div>
       </section>
 
-      <section className="card p-5">
-        <h2 className="text-base font-semibold">LinkedIn engagement (leading indicator)</h2>
-        <p className="mt-0.5 text-[12.5px] text-faint">
-          Posts marked as posted on the calendar in the last 60 days. Copy the numbers from each post&apos;s LinkedIn analytics about a week after posting;
-          they save as you leave the box. Highly cited posts usually draw 10+ thoughtful comments.
-        </p>
-        {lead.posts.length ? (
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full min-w-[820px] text-[12.5px]">
-              <thead className="text-left text-[11px] text-faint">
-                <tr><th className="py-1 font-medium">Post</th><th className="font-medium">Author</th><th className="font-medium">Posted</th>
-                  <th className="px-1 text-right font-medium">Impressions</th><th className="px-1 text-right font-medium">Reactions</th><th className="px-1 text-right font-medium">Comments</th><th className="px-1 text-right font-medium">Shares</th><th /></tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {lead.posts.map((p) => (
-                  <tr key={`${p.topic_id}:${p.channel}`}>
-                    <td className="max-w-[320px] py-1.5 pr-3">
-                      <span className="mr-1.5 rounded bg-subtle px-1.5 text-[11px] text-muted">{CHANNELS[p.channel as Channel]?.label ?? p.channel}</span>
-                      {p.post_url ? <a href={p.post_url} target="_blank" rel="noreferrer" lang="ja" className="text-accent hover:underline">{p.title}</a> : <span lang="ja">{p.title}</span>}
-                    </td>
-                    <td className="text-muted">{p.author ?? "—"}</td>
-                    <td translate="no" className="font-mono text-muted">{p.posted_at.slice(5)}</td>
-                    <LinkedinStats topicId={p.topic_id} channel={p.channel} initial={{ impressions: p.impressions, reactions: p.reactions, comments: p.comments, shares: p.shares }} />
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : <p className="mt-2 text-[13px] text-muted">No LinkedIn posts marked as posted yet. Mark them on the <Link href="/topics/calendar" className="underline">calendar</Link> and they appear here.</p>}
-      </section>
-
-      <section className="card p-5">
+      <section id="manual-check" className="card scroll-mt-6 p-5">
         <h2 className="text-base font-semibold">Weekly manual check (about 5 minutes)</h2>
         <p className="mt-0.5 text-[12.5px] text-faint">
           Copy each question into ChatGPT, Gemini and Copilot, set to Japanese. Mark whether renesistech.jp was <b>cited</b> as a source, Renesis was only <b>named</b>,
@@ -324,9 +321,9 @@ export default async function GeoPage() {
             <span className="ml-auto text-[12px] text-muted">Add the site at bing.com/webmasters (import from Search Console)</span>
           </li>
         </ul>
-        <p className="mt-2 text-[11.5px] text-faint">See <Link href="/forecast" className="underline">Trend forecast</Link> for what is rising in the news; this page covers how AI answers buyers.</p>
+        <p className="mt-2 text-[11.5px] text-faint">See <Link href="/trends/forecast" className="underline">Trend forecast</Link> for what is rising in the news; this page covers how AI answers buyers.</p>
       </section>
-    </main>
+    </>
   );
 }
 

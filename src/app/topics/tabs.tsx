@@ -1,17 +1,14 @@
 import Link from "next/link";
 
-/** Topics are built from signals, so both live under one "Topics" area with two tabs. */
-export function TopicTabs({ current }: { current: "topics" | "signals" | "calendar" }) {
+/** Plan: this week's topics as a list or on the calendar. */
+export function TopicTabs({ current }: { current: "topics" | "calendar" }) {
   return (
-    <nav aria-label="Topics and signals" className="seg self-start">
+    <nav aria-label="Plan views" className="seg self-start">
       <Link prefetch={false} href="/topics" aria-current={current === "topics" ? "page" : undefined} className={current === "topics" ? "seg-on" : "seg-item"}>
-        This week&apos;s topics
+        List
       </Link>
       <Link prefetch={false} href="/topics/calendar" aria-current={current === "calendar" ? "page" : undefined} className={current === "calendar" ? "seg-on" : "seg-item"}>
         Calendar
-      </Link>
-      <Link prefetch={false} href="/signals" aria-current={current === "signals" ? "page" : undefined} className={current === "signals" ? "seg-on" : "seg-item"}>
-        All signals
       </Link>
     </nav>
   );

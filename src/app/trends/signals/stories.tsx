@@ -3,7 +3,7 @@ import { sql } from "@/lib/db";
 import { loadTaxonomy } from "@/lib/taxonomy";
 import { STRENGTH_MAX, storyStrength, type StrengthParts } from "@/lib/strength";
 import { typeInfo } from "@/lib/signal-types";
-import { HoverCard } from "../hover-card";
+import { HoverCard } from "../../hover-card";
 import { Rate } from "./rate";
 import { fmt, WhyPanel, type Row } from "./why-panel";
 

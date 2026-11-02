@@ -22,6 +22,7 @@ const ICONS: Record<string, React.ReactNode> = {
   geo: <path d="M12 3a9 9 0 1 0 9 9M12 3v4M12 3a9 9 0 0 1 9 9h-4M8 12a4 4 0 1 0 4-4" />,
   sources: <path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16M5 19h.01" />,
   knowledge: <path d="M5 4h11l3 3v13H5zM9 10h6M9 14h6" />,
+  today: <path d="M4 5h16v15H4zM4 10h16M9 3v4M15 3v4M8 14h3" />,
   status: (
     <>
       <circle cx="12" cy="12" r="3" />
@@ -30,28 +31,27 @@ const ICONS: Record<string, React.ReactNode> = {
   ),
 };
 
+// Four places to work, in the order of the job: what to do now → what's trending → what we make → how it did.
 const GROUPS = [
   {
-    label: "Plan",
+    label: "Work",
     links: [
-      { href: "/performance", label: "Performance", icon: "performance" },
-      { href: "/topics", label: "Topics & signals", icon: "topics", also: ["/signals"] },
-      { href: "/forecast", label: "Trend forecast", icon: "forecast" },
-      { href: "/geo", label: "AI search (GEO)", icon: "geo" },
-      { href: "/signal-index", label: "Signal index", icon: "index" },
-      { href: "/review", label: "Monthly review", icon: "review" },
+      { href: "/", label: "Today", icon: "today", hint: "Tasks for today", exact: true },
+      { href: "/trends", label: "Trends", icon: "forecast", hint: "Signals · AI search · Signal index · Forecast" },
+      { href: "/topics", label: "Plan", icon: "topics", hint: "Topics · Calendar" },
+      { href: "/performance", label: "Results", icon: "performance", hint: "Google · AI search · Fix these" },
     ],
   },
   {
-    label: "Inputs",
+    label: "Settings",
     links: [
+      { href: "/audience", label: "Audience & experts", icon: "audience" },
       { href: "/categories", label: "Categories", icon: "categories" },
       { href: "/sources", label: "Sources", icon: "sources" },
-      { href: "/audience", label: "Audience", icon: "audience" },
       { href: "/knowledge", label: "Knowledge", icon: "knowledge" },
+      { href: "/status", label: "Status", icon: "status" },
     ],
   },
-  { label: "System", links: [{ href: "/status", label: "Status", icon: "status" }] },
 ];
 
 export function Sidebar({ signOut }: { signOut: (() => Promise<void>) | null }) {
@@ -59,7 +59,7 @@ export function Sidebar({ signOut }: { signOut: (() => Promise<void>) | null }) 
   if (path.startsWith("/login") || path.startsWith("/auth")) return null;
   return (
     <aside className="flex w-full flex-col gap-3 border-b border-line bg-sidebar px-4 py-3 md:sticky md:gap-6 md:py-5 md:top-0 md:h-screen md:w-[248px] md:flex-none md:border-r md:border-b-0">
-      <Link href="/performance" className="flex items-center gap-3 px-2" aria-label="Kizashi home">
+      <Link href="/" className="flex items-center gap-3 px-2" aria-label="Kizashi home">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/kizashi-logo.png" alt="" width={40} height={38} className="h-[38px] w-10 shrink-0 rounded-[10px] object-cover shadow-[0_1px_2px_rgba(30,58,49,0.12)]" />
         <span className="min-w-0">
@@ -72,7 +72,7 @@ export function Sidebar({ signOut }: { signOut: (() => Promise<void>) | null }) 
           <div key={g.label} className="flex shrink-0 flex-nowrap gap-0.5 md:flex-col">
             <p className="eyebrow mb-1 ml-3 hidden md:block">{g.label}</p>
             {g.links.map((l) => {
-              const active = [l.href, ...(("also" in l && l.also) || [])].some((h) => path === h || path.startsWith(`${h}/`));
+              const active = "exact" in l && l.exact ? path === l.href : path === l.href || path.startsWith(`${l.href}/`);
               return (
                 <Link
                   key={l.href}
@@ -85,7 +85,10 @@ export function Sidebar({ signOut }: { signOut: (() => Promise<void>) | null }) 
                   <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke={active ? "var(--color-accent)" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     {ICONS[l.icon]}
                   </svg>
-                  {l.label}
+                  <span className="min-w-0">
+                    <span className="block">{l.label}</span>
+                    {"hint" in l && l.hint && <span className="hidden text-[11px] font-normal leading-tight text-faint md:block">{l.hint}</span>}
+                  </span>
                 </Link>
               );
             })}

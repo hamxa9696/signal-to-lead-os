@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { sql } from "@/lib/db";
 import { forecastAccuracy } from "@/lib/forecast";
-import { PageHeader } from "../page-header";
-import { RunButton } from "../run-button";
-import { HoverCard } from "../hover-card";
+import { PageHeader } from "../../page-header";
+import { RunButton } from "../../run-button";
+import { HoverCard } from "../../hover-card";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -64,7 +64,7 @@ export default async function ForecastPage({ searchParams }: { searchParams: Pro
   const shown = rows.filter((r) => (dir === "all" ? true : dir === "rising" ? r.direction === "rising" || r.direction === "emerging" : r.direction === dir))
     .filter((r) => !q.cat || r.cat === q.cat);
   const href = (p: { dir?: string; cat?: string | null }) =>
-    `/forecast?${new URLSearchParams({ ...((p.dir ?? dir) !== "rising" ? { dir: p.dir ?? dir } : {}), ...((p.cat === undefined ? q.cat : p.cat) ? { cat: (p.cat === undefined ? q.cat : p.cat)! } : {}) })}`;
+    `/trends/forecast?${new URLSearchParams({ ...((p.dir ?? dir) !== "rising" ? { dir: p.dir ?? dir } : {}), ...((p.cat === undefined ? q.cat : p.cat) ? { cat: (p.cat === undefined ? q.cat : p.cat)! } : {}) })}`;
   const count = (d: string) => rows.filter((r) => (d === "rising" ? r.direction === "rising" || r.direction === "emerging" : d === "all" || r.direction === d)).length;
   const pct = (x: number) => `${Math.round(x * 100)}%`;
 
@@ -150,7 +150,7 @@ export default async function ForecastPage({ searchParams }: { searchParams: Pro
             return (
               <div key={r.term} className="grid grid-cols-[minmax(0,1.4fr)_180px_150px_96px_minmax(0,1.6fr)_120px] items-center gap-4 border-b border-line px-5 py-3 last:border-b-0">
                 <div className="min-w-0">
-                  <Link prefetch={false} href={`/signals?${new URLSearchParams(r.term_kind === "search" ? { source: `Google News: ${r.term}` } : { q: r.term })}`} lang="ja" className="block truncate text-[14px] font-semibold hover:underline">{r.term}</Link>
+                  <Link prefetch={false} href={`/trends/signals?${new URLSearchParams(r.term_kind === "search" ? { source: `Google News: ${r.term}` } : { q: r.term })}`} lang="ja" className="block truncate text-[14px] font-semibold hover:underline">{r.term}</Link>
                   <p className="flex flex-wrap items-center gap-x-2 text-[11.5px] text-faint">
                     <span className="font-semibold" style={{ color: DIR[r.direction].color }}>{DIR[r.direction].icon} {DIR[r.direction].label}</span>
                     <span>{KIND[r.term_kind]}</span>

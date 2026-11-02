@@ -198,7 +198,7 @@ export function CalendarBoard(p: {
                         <p className="flex flex-wrap items-center gap-1.5 bg-accent-soft/50 px-2 py-1 text-[11px] text-accent-ink">
                           <b>Likely trending:</b>
                           {p.trends.map((t) => <span key={t.term} lang="ja" className="rounded-full bg-surface px-2 py-0.5">{t.direction === "emerging" ? "✦" : "▲"} {t.term}</span>)}
-                          <Link prefetch={false} href="/forecast" className="ml-1 font-semibold underline">forecast →</Link>
+                          <Link prefetch={false} href="/trends/forecast" className="ml-1 font-semibold underline">forecast →</Link>
                         </p>
                       )}
                       <div className="grid grid-cols-7 divide-x divide-line">

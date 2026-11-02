@@ -162,8 +162,8 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
           <p className="eyebrow">
             Week of {fmtWeek(week)} – {fmtWeek(addDays(week, 6))} · JST · {signals} relevant signals
           </p>
-          <h1 className="page-title">Weekly topics</h1>
-          <p className="mt-1.5 max-w-2xl text-sm text-muted">Each topic is built by Gemini from the week&apos;s signals and search demand. Open a topic to see the signals behind it, its keywords and the keywords to rank for.</p>
+          <h1 className="page-title">This week&apos;s content</h1>
+          <p className="mt-1.5 max-w-2xl text-sm text-muted">Each piece comes from the week&apos;s trends (news, Google and AI search). Open one to see why, its Google keyword and AI question, the writing prompt and where it gets shared.</p>
         </div>
         <div className="flex gap-2">
           <Link href={`/topics?week=${addDays(week, -7)}`} className="btn">
