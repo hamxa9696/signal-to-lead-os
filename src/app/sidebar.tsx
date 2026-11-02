@@ -13,6 +13,7 @@ const ICONS: Record<string, React.ReactNode> = {
       <circle cx="12" cy="12" r="1" />
     </>
   ),
+  index: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
   review: <path d="M4 4v6h6M20 20v-6h-6M5 15a7 7 0 0 0 12 2M19 9A7 7 0 0 0 7 7" />,
   delivery: <path d="M4 6l8 7 8-7M4 6h16v12H4z" />,
   audience: <path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21v-1a6 6 0 0 1 12 0v1M16 3.5a4 4 0 0 1 0 7.5M22 21v-1a6 6 0 0 0-4-5.6" />,
@@ -37,6 +38,7 @@ const GROUPS = [
       { href: "/topics", label: "Topics & signals", icon: "topics", also: ["/signals"] },
       { href: "/forecast", label: "Trend forecast", icon: "forecast" },
       { href: "/geo", label: "AI search (GEO)", icon: "geo" },
+      { href: "/signal-index", label: "Signal index", icon: "index" },
       { href: "/review", label: "Monthly review", icon: "review" },
     ],
   },

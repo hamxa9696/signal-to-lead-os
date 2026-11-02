@@ -15,6 +15,7 @@ import { syncPayloadPublications } from "@/lib/content/publish";
 import { syncBrevo } from "./sync-brevo";
 import { collectGa4 } from "./collect-ga4";
 import { monthlyReview } from "./monthly-review";
+import { makeSignalIndexJob } from "./signal-index";
 import type { Job, JobResult } from "./types";
 
 const syncPublications: Job = {
@@ -32,6 +33,7 @@ export function jobGroups(opts: { force?: boolean } = {}): Record<string, Job[]>
   const shortlist = makeWeeklyShortlist(opts);
   const forecast = makeForecastJob(opts);
   const geo = makeGeoJob(opts);
+  const signalIndex = makeSignalIndexJob(opts);
   return {
     "collect-feeds": [collectFeeds],
     "collect-gsc": [collectGsc],
@@ -50,7 +52,8 @@ export function jobGroups(opts: { force?: boolean } = {}): Record<string, Job[]>
     daily: [collectFeeds, collectGsc, collectGa4, analyzeSignals, sortSignals, deepenSignals, clusterStories, forecast, syncPublications, syncBrevo], // every morning
     weekly: [geo, shortlist, planFormatsJob, researchTopics], // Monday, after daily
     "monthly-review": [monthlyReview],
-    monthly: [monthlyReview], // 1st of the month
+    "signal-index": [signalIndex],
+    monthly: [monthlyReview, signalIndex], // 2nd of the month
   };
 }
 

@@ -36,6 +36,23 @@ function keywordBlock(t: TopicFull): string[] {
   ].filter((l, i) => i === 0 || l !== "");
 }
 
+/** Original data (the monthly signal index): the article is built on these numbers. */
+function dataBlock(t: TopicFull): string[] {
+  if (!t.data_brief) return [];
+  return [
+    "",
+    "## ORIGINAL DATA: the core of this article (Renesis Tech Japan's own research)",
+    "This is first-party data no other site has, which is exactly what AI assistants and journalists cite. Rules:",
+    "- Build the article on these numbers; use them exactly as given, never round differently or invent more.",
+    "- Credit every number to 「Renesis Tech Japan調べ（Kizashiシグナル指数）」 at least once per section.",
+    "- Include a short ## 調査方法 section from the Method notes, including any coverage note.",
+    "- Present figures as bullet lists (one figure per bullet), not tables. Name the strongest stories and link their URLs.",
+    "- Interpret: what each movement means for Japanese companies and what to check next month.",
+    "",
+    t.data_brief,
+  ];
+}
+
 function researchBlock(t: TopicFull): string[] {
   const r = t.research;
   if (!r || !r.points.length) return [];
@@ -142,6 +159,7 @@ export function buildPromptPack(t: TopicFull, k: Knowledge, existing?: { markdow
     "",
     "## Background sources (for context only: do not copy or translate them)",
     ...sources,
+    ...dataBlock(t),
     ...researchBlock(t),
     ...keywordBlock(t),
     "",
