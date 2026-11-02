@@ -29,14 +29,14 @@ export function linkedinOf(citations: Citation[], ours: (u: string) => boolean) 
   return { linkedin_cited: li.length > 0, linkedin_ours: li.some((c) => ours(c.url)) };
 }
 
-const Out = z.object({
+const Out = z.preprocess((v) => (Array.isArray(v) ? { items: v } : v), z.object({
   items: z.array(z.object({
     i: z.number().int(),
     sentiment: z.enum(["positive", "neutral", "negative"]).nullable().catch(null),
     recommended: z.boolean().catch(false),
     competitors: z.array(z.string()).catch([]),
   })),
-});
+}));
 
 /** Sentiment, competitors and "are we the main recommendation" for this week's un-analyzed answers. */
 export async function analyzeAnswers(week: string): Promise<{ analyzed: number }> {

@@ -12,7 +12,8 @@ const CLUSTERS = 4;
 const MANUAL = 10;
 const PATTERNS = ["とは", "おすすめ", "比較", "費用", "会社", "事例"];
 
-const Out = z.object({
+// Lighter models sometimes return the bare array; accept both shapes.
+const Out = z.preprocess((v) => (Array.isArray(v) ? { questions: v } : v), z.object({
   questions: z.array(z.object({
     question: z.string().min(6),
     category: z.string().nullable().catch(null),
@@ -23,7 +24,7 @@ const Out = z.object({
     evidence: z.array(z.string()).catch([]),
     manual: z.boolean().catch(false),
   })).min(5),
-});
+}));
 
 export async function buildQuestionSet(force = false): Promise<{ week: string; questions: number }> {
   const week = weekOf();
