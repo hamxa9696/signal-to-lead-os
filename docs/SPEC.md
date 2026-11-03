@@ -1,6 +1,8 @@
-# Renesis Signal-to-Lead OS — Spec
+# Kizashi (formerly Signal-to-Lead OS) — Spec
 
-Status: **v0.6, phase 6 (monthly review) · deployed on Vercel + Supabase** · Owner: Renesis marketing · Last updated 2026-10-27
+Status: **v0.9 · phases 1–6 plus stories, GEO, formats/calendar, forecast, signal index, top stories, Why/Copy/Save, Mark posted · deployed on Vercel + Supabase** · Owner: Renesis marketing · Last updated 2026-11-03
+
+For the problem this solves and the product in plain terms, read [OVERVIEW.md](OVERVIEW.md) first. Sections 1–4f describe the original six phases; **§4g** covers everything built since.
 
 ## 1. Goal
 
@@ -19,12 +21,13 @@ form fill came from, so quality can be judged later.
 
 | When | Who | What |
 |---|---|---|
-| Daily, automatic | GitHub Actions | Collect signals (RSS, Search Console), pull metrics (GA4, GSC, Payload forms) |
-| Monday, automatic | Gemini | Score signals → shortlist of ~5 article topics + 1 lead-magnet concept |
+| Daily, automatic | GitHub Actions | Collect signals (RSS, Search Console, GA4), score and sort them, group stories, propose breaking stories, forecast, sync Payload + Brevo |
+| Daily, ~5 min | You | **Today**: approve/reject breaking stories, see what is due; pick any top story into the plan |
+| Monday, automatic | Gemini | AI-search check, shortlist of ~5 articles + 1 lead magnet, content packages (hub + spokes), research |
 | Monday, ~15 min | You | Approve / reject topics in the app |
 | Tue–Thu | You + ChatGPT/Claude | Copy each **prompt pack** into ChatGPT/Claude, paste the draft back |
 | Automatic | Gemini | AI review pass on each draft (pass → Ready, fail → revise) |
-| Tue–Thu | You | Push Ready articles to Payload as drafts → publish; post social copy (Metricool / manual) |
+| Tue–Thu | You | Push Ready articles to Payload as drafts → publish; post the spokes; **Mark posted** in Kizashi |
 | Monthly | App | Review page: pages ranking 8–20 to refresh, winners to expand, dead pages to cut |
 
 Minimum output: **1 lead magnet per week**, 2–3 articles per week.
@@ -114,17 +117,18 @@ renesistech.jp has no form plugin, and its only content collection is `posts`, s
 
 | Part | Choice | Notes |
 |---|---|---|
-| App | Next.js 16 + Tailwind | Runs locally (port 3003) for now |
+| App | Next.js 16 + Tailwind | Vercel (Hobby); local dev on port 3003 |
 | DB | Postgres — local Docker for dev, **Supabase free** for shared/prod | Raw SQL migrations; Supabase pauses after 7 idle days, daily jobs prevent it |
 | Jobs | GitHub Actions cron | ~2,000 free min/month on private repos |
-| AI | Gemini API free tier | Analysis, scoring, review |
+| AI | Gemini API free tier | Analysis, scoring, stories, research, review |
+| AI search checks | Tavily free (1,000/month) | Optional: Perplexity, OpenAI, Gemini grounding |
 | Drafting | ChatGPT / Claude subscriptions | Manual paste via prompt packs |
 | CMS | Payload REST API | Drafts only |
 | Email | Brevo free | ~300 emails/day |
 | Glue | Make.com free | 1 scenario: form → Brevo (+ alert) |
 | Social | Metricool | Scheduling + stats within free limits |
 
-Hosting note: Vercel Hobby is non-commercial only; if the UI needs hosting use Cloudflare Pages.
+Hosting note: Vercel Hobby is non-commercial only. Moving to Vercel Pro or Cloudflare Pages is an open decision.
 
 ## 4b. Phase 2 details
 
@@ -206,17 +210,139 @@ data, not today, so reporting lag doesn't look like a drop.
 
 ## 4f. Hosting
 
-- **Vercel** (Next.js), behind **Supabase Auth** magic-link login, limited to `ALLOWED_EMAILS`
-  (same `@supabase/ssr` + `src/proxy.ts` pattern as Musubi CRM). In production the app fails closed if auth isn't configured.
-- **Supabase** Postgres via the transaction pooler (`prepare: false`), and Storage for PDFs.
+- **Vercel** (Next.js) at https://signal-to-lead-os.vercel.app, behind **Supabase Auth**, limited to `ALLOWED_EMAILS`
+  (same `@supabase/ssr` + `src/proxy.ts` pattern as Musubi CRM). Sign-in is email-only: an approved email gets a
+  server-minted session, with no password or email round-trip (owner's choice, 2026-10-28). In production the app fails closed if auth isn't configured.
+- **Supabase** Postgres (Tokyo) via the **session pooler** (`prepare: false`). The transaction pooler deadlocked the
+  dashboard's parallel queries. Storage holds the PDFs. Migrations run with `scripts/migrate.mjs` against the session-pooler URL.
 - PDFs render on Vercel with `@sparticuz/chromium` into `/tmp` and upload immediately.
 - Scheduled jobs stay on GitHub Actions (daily / Monday / 2nd of month) against the same database.
 
+## 4g. Since phase 6 (Oct 28 – Nov 3, 2026)
+
+### Navigation
+Today (`/`) · Trends (`/trends` + Signals, AI search, Signal index, Forecast) · Plan (`/topics` + Calendar) ·
+Results (`/performance`, incl. GEO results and **Fix these**, which used to be the Monthly review) · Settings. Old URLs redirect (`next.config.ts`).
+
+### Signals → stories
+- `sort` puts each relevant signal into an owner-editable category / sub-category (`/categories`).
+- `deepen` reads the full text of strong signals and extracts facts, numbers, implications and reader questions.
+- `cluster` has Gemini group articles about the **same event** (not just the same topic) into `stories`. **Story strength 0–100**
+  = relevance 35 + coverage 25 + momentum 15 + source weight 15 + evidence 10; each part carries a plain-English note (`src/lib/strength.ts`).
+- Google News RSS searches for tracked phrases add coverage beyond the fixed feeds.
+
+### Trends overview (`src/lib/trend-board.ts`)
+One row per tracked theme (a niche keyword or a news search phrase), scored news 30 + Google 25 + AI 25 + gap 20, with a
+deterministic recommendation and **Add to this week's plan**. Crawler-only phrases (PR TIMES, 提供開始, 資金調達…) are excluded.
+
+### Top stories and story → topic (`src/lib/top-stories.ts`, migration 0028)
+- **Top stories:** the strongest stories of the last 3 days in any field, at the top of Trends, as a card on Today, and on each Signals card.
+- **Four uses:**
+
+  | Use | Becomes | Note |
+  |---|---|---|
+  | Fast take | article, `fast_take` slot | 48h deadline |
+  | Case study | article, evergreen | |
+  | White paper | lead magnet, mini report | |
+  | Checklist | lead magnet, checklist | |
+
+- **★ recommended use** by kind of news: incident → fast take; regulation → checklist; survey → white paper; case study → case study; and so on.
+- `createStoryTopic({story} | {signal}, use)`:
+  - a lone article (not yet grouped) is planned as a single signal;
+  - Gemini writes the title and outline, with a deterministic fallback;
+  - the topic gets `story_id` and up to 5 linked signals;
+  - then `planFormats` builds its content package.
+- **"Planned"** means a topic with that `story_id`, or a fast take linked to the story's signals. A topic that only cites the story as
+  background is labelled "Cited as background", and the story stays a candidate.
+- **`breaking` job (daily, after `cluster`):**
+  - proposes a topic in the story's best format for a story from the last 36h with strength ≥ 80, or ≥ 5 outlets at strength ≥ 70;
+  - at most 1 a day and 2 a week; skips stories already planned or rejected;
+  - shows on Today as a **Decide** task.
+- The Monday shortlist's "already ran this week" check reads `job_runs`, so a breaking topic never blocks it. A forced rerun replaces only
+  shortlist-proposed topics.
+
+### Why this / Copy package / Save for later (`src/lib/story-why.ts`, migration 0029)
+On every story and article (Trends top stories, Signals stories and articles):
+- **Why this:** three deterministic sections:
+  - *why it's relevant:* Gemini's reason, buyer problem, angle, service and readers, category;
+  - *where it's trending:* outlets by tier, momentum (last 24h vs the 48h before), tracked keywords, matching Search Console queries,
+    AI buyer questions it answers (2+ keyword hits) and who AI cites today;
+  - *why it would perform:* strength notes, best format for its kind of news, hours left in the fast-take window (72h after the latest
+    coverage), whether a page of ours already covers it.
+- **Copy package:** title, sources with links, key facts, the three why sections and suggested formats, as plain text.
+- **Save for later:** `stories.saved_at` / `signals.saved_at`; filter with Signals `?saved=1`, or "★ Saved (N)" on Trends.
+- **Add to plan:** the four uses above, from any story or article.
+- The older per-article panel is now called "How we found and sorted it" (source and categorisation).
+
+### Content formats and calendar (migrations 0020–0022)
+- **Hub and slot:** every topic has one **hub** on renesistech.jp, decided by its **slot**:
+
+  | Slot | Hub |
+  |---|---|
+  | Evergreen | SEO article |
+  | Fast take | short news-take article |
+  | Lead magnet | lead magnet + landing page |
+  | Rewrite | rewrite of an existing page |
+
+- **Lead-magnet formats:** checklist, calculator, comparison, template, mini report, self-assessment, case collection.
+- **Spokes** (Gemini picks them, within rules): X thread, LinkedIn carousel / article / post series, note.com, newsletter, YouTube (monthly).
+  Channels can be switched on and off on `/audience`.
+- **Scores:** each package is scored on Search, Reach and Lead (0–100), plus effort in hours.
+- **Tracked links:** every spoke prompt includes `utm_campaign=kizashi-<topic>`. GA4 visits and leads per channel and format land in `channel_metrics_daily`.
+- **Calendar** (`/topics/calendar`):
+  - month, 2-week and agenda views; drag-and-drop to move items;
+  - filters, a workload line, and a "Needs attention" panel (overdue, today, fast-take deadline under 36h);
+  - an ICS feed (`/api/calendar/<token>`).
+  Spokes are dated from the hub's date and their timing.
+
+### Mark posted (migration 0030)
+- **What can be marked:** the hub and every spoke. Each has **Mark posted**, with an optional link to the live post:
+  - hub: `topics.posted_at` / `posted_url`;
+  - spoke: `topic_spokes.posted_at` / `post_url`.
+- **Effects of marking the hub:**
+  - the topic becomes `done`, so it counts as live on Plan, Today and the weekly published count;
+  - the hub shows as live on the calendar, dated on the posted day;
+  - its spokes become "to post".
+- **Undo** returns the topic to `in_progress` (if a draft exists) or `approved`.
+- **Where:** the content package's hub row (topic page and Plan), the calendar details panel (spokes can be marked even before the hub is
+  live), and Today's Write / Revise / Publish / Post tasks. A hub published through Payload shows "✓ Live on site" instead.
+- **Code:** `markPosted` / `savePostLink` in `src/app/topics/spoke-actions.ts`; `PostedToggle` in `src/app/topics/posted-toggle.tsx`.
+
+### GEO: visibility in AI search (`src/lib/geo/`, migrations 0023–0026)
+- **Questions:** a weekly set of ~32 Japanese buyer questions in 4 topic clusters, ~70% carried over so trends compare.
+- **Engines:** Tavily (free, 1,000 requests/month) is on by default. Perplexity, OpenAI and Gemini grounding switch on with their keys.
+  The manual check (ask ChatGPT, Gemini and Copilot, then mark who they cite) is a weekly task.
+- **Per answer:** citation prominence (primary / supporting / reference), sentiment, competitors named, and whether LinkedIn is a source.
+- **Readiness:** deterministic checks of our best page per question, plus its Search Console position.
+- **Measurement in three layers:**
+  - leading indicators: AI-assistant visits, LinkedIn posting and engagement, new pages;
+  - outcomes: citations, share of voice, rank, sentiment, judged on **4-week windows**;
+  - diagnostics: the outcomes split by cluster, intent, engine, format and author.
+- **Experts:** named Renesis authors; every piece is written in, and published under, one expert's name, with citability rules for LinkedIn.
+
+### Research (`research` job)
+Google News RSS (no key) plus our deep-read signals give numbered sources. Gemini summarises only from them and suggests keywords.
+Gemini's own Search grounding is off unless `GEMINI_GROUNDING=on`.
+
+### Trend forecast (`forecast` job, daily)
+Share-of-voice statistics and early-warning sources forecast which terms will get more coverage in the next 7 days. Gemini only spots new
+terms and dated upcoming events. Each forecast is stored and later scored against the real signals.
+
+### Monthly signal index (`signal-index` job, 2nd of the month)
+Original data on what moved in Japan's AI, blockchain, cloud, software and QA news, computed only from our own signals, with no AI-made
+numbers. It creates a report topic with a data brief, because original research is what AI search cites most.
+
 ## 5. Data model (summary — see `supabase/migrations`)
 
-`services`, `icps`, `knowledge_docs`, `sources`, `signals`, `search_queries_daily`, `topics`,
+Core: `services`, `icps`, `knowledge_docs`, `sources`, `signals`, `search_queries_daily`, `topics`,
 `topic_signals`, `briefs`, `content_items`, `content_versions`, `publications`,
 `metrics_daily`, `form_submissions`, `job_runs`.
+
+Added since (§4g): `stories` (+ `signals.story_id`, `saved_at` on both), `categories` / `subcategories`,
+`site_pages`, `topic_spokes` (per-channel planned date, posted_at, post_url, LinkedIn numbers),
+`channel_metrics_daily`, forecasts, `geo_questions` / `geo_checks` and related GEO tables, experts,
+signal-index tables, settings. `topics` gained `slot`, `format_plan`, `format_scores`, `deadline`,
+`planned_date`, `research`, `keyword_plan`, `story_id`, `posted_at`, `posted_url`.
 
 ## 6. Phases
 
@@ -228,6 +354,10 @@ data, not today, so reporting lag doesn't look like a drop.
 | 4 ✅ | Lead-magnet pipeline — landing template, Payload form, Make → Brevo delivery | Downloads deliver by email; contacts stored |
 | 5 ✅ | Performance — GA4/GSC/forms daily pull, per-piece dashboard, scoring feedback | See traffic + form fills per piece |
 | 6 ✅ | Monthly review — refresh / expand / prune recommendations | Monthly action list |
+| 7 ✅ | Stories, categories, deep reads, research | News grouped into scored stories; topics researched with cited sources |
+| 8 ✅ | Content formats + calendar | Hub + spokes per topic, tracked links, calendar with Mark posted |
+| 9 ✅ | GEO (AI search), experts, forecast, signal index | AI citations tracked; monthly original data; next-week forecast |
+| 10 ✅ | Today / Trends / Plan / Results, top stories, breaking stories, Why / Copy / Save | Any story can become a planned piece in one click, with its reasons |
 
 ## 7. Open questions
 1. **Payload**: version (2 or 3), posts collection slug + fields, rich-text editor (Lexical?),

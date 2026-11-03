@@ -14,6 +14,7 @@ reload http://localhost:3003. The matching row turns green.
 | 7 | Brevo | You (DNS access needed) | 20 min | Phase 4 |
 | 8 | Make.com | You | 5 min | Phase 4 |
 | 9 | Supabase + GitHub secrets (scheduled jobs) | You | 15 min | Phase 2 automation |
+| 10 | AI search engines (Tavily; optional Perplexity / OpenAI / Gemini grounding) | You | 5 min | GEO (AI-search tracking) |
 
 **Do §4 and §5 first.** Analytics and Search Console only start collecting data once they are
 installed, so every day of delay is a day of missing history.
@@ -22,7 +23,12 @@ Use a company Google account (not personal) for §2–§5 so access survives sta
 
 ---
 
-## Status (2026-10-28)
+## Status (2026-11-03)
+- §2 Gemini, §9 Supabase + GitHub secrets: **done**; the app runs on Vercel and the schedule runs daily.
+- §10 Tavily: **set** via `scripts/add-tavily-key.sh`. Rotate the key in the Tavily dashboard and run the script again, because the old key was shared in a chat.
+- §6 Payload, §7 Brevo, §8 Make and the website form: **not started**; these block publishing and lead capture.
+
+Earlier notes (2026-10-28):
 - §3 Service account: **done**, `stl-reader@signal-to-lead-os.iam.gserviceaccount.com` in Google Cloud project
   `signal-to-lead-os` (Analytics Data API + Search Console API enabled; key stored in Vercel, GitHub and local `.env*`).
 - §4 GA4: **connected**, property `468932036` ("Japan | Renesis Tech"), stl-reader = Viewer. 90 days backfilled.
@@ -164,3 +170,20 @@ Supabase pauses free projects after 7 days without activity. The daily job keeps
 - Download links look like `<SUPABASE_URL>/storage/v1/object/public/lead-magnets/<slug>.pdf`.
   Give that base (shown on the Delivery page) to the website developer as
   `NEXT_PUBLIC_LEAD_MAGNET_BASE_URL`.
+
+## §10 AI search engines (GEO)
+Kizashi asks a weekly set of Japanese buyer questions to AI search engines and records who they cite.
+Each engine switches on when its key is set (Trends → AI search shows which are on):
+
+| Engine | Key | Cost |
+|---|---|---|
+| Tavily | `TAVILY_API_KEY` | Free, 1,000 requests/month (enough for the weekly set) |
+| Perplexity | `PERPLEXITY_API_KEY` | Paid, cheap |
+| OpenAI (ChatGPT search) | `OPENAI_API_KEY` (model `OPENAI_GEO_MODEL`, default gpt-4.1-mini) | Paid, cheap |
+| Gemini + Google Search | `GEMINI_GROUNDING=on` | Needs billing on the Gemini key; a daily free allowance usually keeps it at ¥0 |
+
+1. https://tavily.com → sign up → copy the API key.
+2. Run `scripts/add-tavily-key.sh`. It reads the key from a file or the clipboard, checks it, and saves it to
+   `.env.production.local` (git-ignored), Vercel and GitHub Actions. Add it to `.env` yourself for local runs.
+3. Without paid engines, the weekly **manual AI check** on Today (ask ChatGPT, Gemini and Copilot, then mark who
+   they cite) covers the rest.
