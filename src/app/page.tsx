@@ -1,7 +1,7 @@
 // Today: what is moving, where this week's content stands, and the few tasks that need a person.
 import Link from "next/link";
 import { sql } from "@/lib/db";
-import { trendBoard } from "@/lib/trend-board";
+import { topStories, STORY_USES } from "@/lib/top-stories";
 import { calendarItems } from "@/lib/calendar";
 import { spanTotals } from "@/lib/performance";
 import { outcomes, leading } from "@/lib/geo/measure";
@@ -12,8 +12,8 @@ import { PageHeader } from "./page-header";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
-type Task = { kind: "Write" | "Revise" | "Publish" | "Post" | "Check" | "Enter"; title: string; meta: string; href: string; action: string; urgent?: boolean };
-const KIND_COLOR: Record<Task["kind"], string> = { Write: "#B0573D", Revise: "#B4432F", Publish: "#2F6B55", Post: "#3F6A7B", Check: "#7A4D6B", Enter: "#5E6B64" };
+type Task = { kind: "Decide" | "Write" | "Revise" | "Publish" | "Post" | "Check" | "Enter"; title: string; meta: string; href: string; action: string; urgent?: boolean };
+const KIND_COLOR: Record<Task["kind"], string> = { Decide: "#A65A44", Write: "#B0573D", Revise: "#B4432F", Publish: "#2F6B55", Post: "#3F6A7B", Check: "#7A4D6B", Enter: "#5E6B64" };
 const n = (v: number) => v.toLocaleString("en-US");
 const fmtDay = (d: string) => new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${d}T00:00:00Z`));
 
@@ -23,8 +23,8 @@ export default async function TodayPage() {
   const span = { start: addDays(today, -28), end: addDays(today, -1) };
   const prevSpan = { start: addDays(today, -56), end: addDays(today, -29) };
 
-  const [board, topics, cal, cur, prev, out, lead, manual] = await Promise.all([
-    trendBoard("7d").catch(() => ({ themes: [], gscOn: false, geoWeek: null })),
+  const [top, topics, cal, cur, prev, out, lead, manual, breaking] = await Promise.all([
+    topStories({ hours: 72, limit: 3 }).catch(() => []),
     sql<{ id: string; title_ja: string; slot: Slot | null; status: string; item: string | null; deadline: Date | null; planned_date: string | null; week_of: string }[]>`
       select t.id, t.title_ja, t.slot, t.status, ci.status as item, t.deadline, t.planned_date::text, t.week_of::text
       from topics t left join content_items ci on ci.topic_id = t.id and ci.parent_id is null
@@ -39,6 +39,9 @@ export default async function TodayPage() {
       select (select count(*)::int from geo_questions where week_of = (select max(week_of) from geo_questions) and manual) as questions,
              (select count(*)::int from geo_checks g join geo_questions q on q.id = g.question_id
                where q.week_of = (select max(week_of) from geo_questions) and g.engine like '%_manual') as done`,
+    sql<{ id: string; title_ja: string; rationale: string | null; slot: Slot | null; created_at: Date }[]>`
+      select id, title_ja, rationale, slot, created_at from topics
+      where origin = 'breaking' and status = 'proposed' and week_of >= ${addDays(week, -7)}::date order by created_at desc`,
   ]);
 
   const thisWeek = topics.filter((t) => t.week_of === week);
@@ -49,6 +52,9 @@ export default async function TodayPage() {
 
   // Tasks: only what needs a person, most urgent first.
   const tasks: Task[] = [];
+  for (const b of breaking) {
+    tasks.push({ kind: "Decide", title: b.title_ja, meta: `Breaking story proposed ${Math.max(1, Math.round((Date.now() - new Date(b.created_at).getTime()) / 3_600_000))}h ago · approve or reject while it is fresh`, href: `/topics/${b.id}`, action: "Decide", urgent: true });
+  }
   for (const t of topics) {
     if (t.status === "done" || t.item === "published") continue;
     const hoursLeft = t.deadline ? Math.round((new Date(t.deadline).getTime() - Date.now()) / 3_600_000) : null;
@@ -68,7 +74,6 @@ export default async function TodayPage() {
   if (noStats.length) tasks.push({ kind: "Enter", title: `LinkedIn numbers for ${noStats.length} post${noStats.length === 1 ? "" : "s"}`, meta: "Impressions, reactions, comments and shares from LinkedIn analytics", href: "/performance#linkedin", action: "Enter numbers" });
   tasks.sort((a, b) => Number(!!b.urgent) - Number(!!a.urgent));
 
-  const top = board.themes.slice(0, 3);
   const next = thisWeek.filter((t) => stage(t) < 3).slice(0, 2);
   const delta = (a: number, b: number) => (!b ? null : Math.round(((a - b) / b) * 100));
   const clicksDelta = delta(cur.clicks, prev.clicks);
@@ -83,16 +88,18 @@ export default async function TodayPage() {
 
       <div className="grid gap-4 md:grid-cols-3">
         <section className="card flex flex-col gap-3 p-5">
-          <Head title="Rising now" href="/trends" link="Open Trends" />
+          <Head title="Top stories now" href="/trends#top-stories" link="Use one" />
           {top.length ? top.map((t) => (
-            <Link key={t.keyword} href={`/trends?sel=${encodeURIComponent(t.keyword)}`} prefetch={false} className="flex items-center gap-3 rounded-lg hover:bg-subtle/60">
-              <span translate="no" className="notranslate w-8 font-mono text-[16px] font-semibold">{t.score}</span>
+            <Link key={t.id} href={t.planned ? `/topics/${t.planned.id}` : "/trends#top-stories"} prefetch={false} className="flex items-center gap-3 rounded-lg hover:bg-subtle/60">
+              <span translate="no" className="notranslate w-8 shrink-0 font-mono text-[16px] font-semibold">{t.strength}</span>
               <span className="min-w-0">
-                <span lang="ja" className="block truncate text-[13.5px] font-semibold">{t.keyword}</span>
-                <span className="block truncate text-[11.5px] text-muted">{t.rec.label} · {t.coverage.label}</span>
+                <span lang="ja" className="block truncate text-[13.5px] font-semibold">{t.title}</span>
+                <span className="block truncate text-[11.5px] text-muted">
+                  {t.planned ? <span className="text-good">✓ In the plan</span> : <>Best as {STORY_USES[t.uses[0]].label.toLowerCase()}</>} · {t.outlets} outlet{t.outlets === 1 ? "" : "s"}
+                </span>
               </span>
             </Link>
-          )) : <p className="text-[13px] text-faint">No tracked themes moved this week.</p>}
+          )) : <p className="text-[13px] text-faint">No strong stories in the last 3 days.</p>}
         </section>
 
         <section className="card flex flex-col gap-3 p-5">

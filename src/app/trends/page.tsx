@@ -7,6 +7,8 @@ import { PageHeader } from "../page-header";
 import { HoverCard } from "../hover-card";
 import { PendingButton } from "../pending-button";
 import { addThemeToPlan } from "./actions";
+import { topStories } from "@/lib/top-stories";
+import { TopStoriesSection } from "./top-stories";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -21,9 +23,10 @@ export default async function TrendsOverview({ searchParams }: { searchParams: P
   const q = await searchParams;
   const period = (TREND_PERIODS.find((p) => p.key === q.period)?.key ?? "7d") as TrendPeriod;
   const cat = q.cat && /^[a-z0-9-]{1,40}$/.test(q.cat) ? q.cat : undefined;
-  const [{ themes, gscOn, geoWeek }, cats] = await Promise.all([
+  const [{ themes, gscOn, geoWeek }, cats, top] = await Promise.all([
     trendBoard(period, cat),
     sql<{ slug: string; name_en: string; color: string }[]>`select slug, name_en, color from categories where active order by sort`,
+    topStories({ hours: 72, limit: 6 }),
   ]);
   const sel = themes.find((t) => t.keyword === q.sel) ?? themes[0];
   const stories = sel ? await themeStories(sel.keyword, period) : [];
@@ -41,7 +44,7 @@ export default async function TrendsOverview({ searchParams }: { searchParams: P
       <PageHeader
         eyebrow={`Trends · Japan · last ${periodLabel} vs the ${periodLabel} before`}
         title="What's trending, through 4 lenses"
-        description="Each row is one theme you track. We check it in the news, in Google searches, in what buyers ask AI assistants and in next week's forecast, then score the opportunity for us and suggest what to make."
+        description="Top stories: the strongest news right now, in any field, ready to turn into content. Below, the themes you track, checked in the news, Google searches, what buyers ask AI assistants and next week's forecast, scored for opportunity."
         actions={
           <nav aria-label="Period" className="seg">
             {TREND_PERIODS.map((p) => (
@@ -53,7 +56,10 @@ export default async function TrendsOverview({ searchParams }: { searchParams: P
         }
       />
 
-      <div className="-mt-2 flex flex-wrap items-center gap-1.5">
+      <TopStoriesSection stories={top} />
+
+      <h2 className="-mb-2 text-base font-semibold">Tracked themes</h2>
+      <div className="flex flex-wrap items-center gap-1.5">
         <Link prefetch={false} href={qs({ cat: undefined })} className={`rounded-full border px-3 py-1 text-[12.5px] ${!cat ? "border-accent bg-accent-soft font-semibold text-accent-ink" : "border-line-strong text-muted hover:text-ink"}`}>All fields</Link>
         {cats.map((c) => (
           <Link key={c.slug} prefetch={false} href={qs({ cat: c.slug })} className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12.5px] ${cat === c.slug ? "border-accent bg-accent-soft font-semibold text-accent-ink" : "border-line-strong text-muted hover:text-ink"}`}>

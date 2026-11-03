@@ -6,6 +6,8 @@ import { typeInfo } from "@/lib/signal-types";
 import { HoverCard } from "../../hover-card";
 import { Rate } from "./rate";
 import { fmt, WhyPanel, type Row } from "./why-panel";
+import { usesFor } from "@/lib/top-stories";
+import { PlannedLink, StoryUseButtons } from "../top-stories";
 
 type Story = {
   id: string; title: string; signal_type: string | null; articles: number; outlets: number; strength: number;
@@ -118,6 +120,18 @@ export async function StoriesList({ where, signalWhere, personas }: { where: Pen
   }
   stories.sort((a, b) => b.strength - a.strength || +new Date(b.last_seen) - +new Date(a.last_seen));
 
+  // Stories already turned into a topic of their own (or covered by a fast take).
+  const plannedRows = ids.length
+    ? await sql<{ k: string; id: string; title: string; status: string }[]>`
+        select t.story_id::text as k, t.id, t.title_ja as title, t.status from topics t
+        where t.story_id = any(${ids}::uuid[]) and t.status <> 'rejected'
+        union all
+        select s.story_id::text, t.id, t.title_ja, t.status from topics t
+        join topic_signals ts on ts.topic_id = t.id join signals s on s.id = ts.signal_id
+        where s.story_id = any(${ids}::uuid[]) and t.status <> 'rejected' and t.slot = 'fast_take' and t.story_id is null`
+    : [];
+  const planned = new Map(plannedRows.map((r) => [r.k, r]));
+
   if (!stories.length) return <li className="px-5 py-6 text-sm text-faint">No relevant news here in the last 21 days. Try another category or type, or &ldquo;All&rdquo;.</li>;
   return (
     <>
@@ -171,6 +185,16 @@ export async function StoriesList({ where, signalWhere, personas }: { where: Pen
                   </ul>
                 </details>
               )}
+              {!s.pending && (planned.get(s.id)
+                ? <div className="mt-2"><PlannedLink p={planned.get(s.id)!} /></div>
+                : (
+                  <details className="group/plan mt-2">
+                    <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-[12.5px] font-semibold text-accent hover:underline">
+                      <span className="transition group-open/plan:rotate-90">›</span> Add to this week&apos;s plan
+                    </summary>
+                    <div className="mt-1.5"><StoryUseButtons storyId={s.id} uses={usesFor(s.signal_type)} /></div>
+                  </details>
+                ))}
               {rep && <WhyPanel r={rep} tax={tax} personas={personas} />}
             </div>
           </li>

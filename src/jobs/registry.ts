@@ -16,6 +16,7 @@ import { syncBrevo } from "./sync-brevo";
 import { collectGa4 } from "./collect-ga4";
 import { monthlyReview } from "./monthly-review";
 import { makeSignalIndexJob } from "./signal-index";
+import { breakingStories } from "./breaking-stories";
 import type { Job, JobResult } from "./types";
 
 const syncPublications: Job = {
@@ -42,6 +43,7 @@ export function jobGroups(opts: { force?: boolean } = {}): Record<string, Job[]>
     research: [researchTopics],
     sort: [sortSignals],
     cluster: [clusterStories],
+    breaking: [breakingStories],
     formats: [planFormatsJob],
     forecast: [forecast],
     geo: [geo],
@@ -49,7 +51,7 @@ export function jobGroups(opts: { force?: boolean } = {}): Record<string, Job[]>
     "sync-publications": [syncPublications],
     "sync-brevo": [syncBrevo],
     "collect-ga4": [collectGa4],
-    daily: [collectFeeds, collectGsc, collectGa4, analyzeSignals, sortSignals, deepenSignals, clusterStories, forecast, syncPublications, syncBrevo], // every morning
+    daily: [collectFeeds, collectGsc, collectGa4, analyzeSignals, sortSignals, deepenSignals, clusterStories, breakingStories, forecast, syncPublications, syncBrevo], // every morning
     weekly: [geo, shortlist, planFormatsJob, researchTopics, monthlyReview], // Monday, after daily ("Fix these" refreshes weekly)
     "monthly-review": [monthlyReview],
     "signal-index": [signalIndex],

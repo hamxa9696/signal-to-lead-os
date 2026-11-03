@@ -156,11 +156,15 @@ export function makeWeeklyShortlist(opts: { force?: boolean } = {}): Job {
         return { status: "skipped", stats: {}, note: "GEMINI_API_KEY not set (SETUP.md §2)" };
       }
       const week = weekOf();
-      const [{ n }] = await sql<{ n: number }[]>`select count(*)::int as n from topics where week_of = ${week}`;
+      // Already planned this week? Judged by this job's own runs, so topics added by hand or by the
+      // breaking-story check don't block Monday's plan.
+      const [{ n }] = await sql<{ n: number }[]>`
+        select count(*)::int as n from job_runs
+        where job = 'weekly-shortlist' and status = 'ok' and stats->>'week' = ${week} and (stats->>'topics')::int > 0`;
       if (n > 0 && !opts.force) {
         return { status: "skipped", stats: { week, existing: n }, note: "shortlist already generated for this week (use --force)" };
       }
-      if (opts.force) await sql`delete from topics where week_of = ${week} and status = 'proposed'`;
+      if (opts.force) await sql`delete from topics where week_of = ${week} and status = 'proposed' and origin = 'shortlist'`;
 
       const targeting = await loadTargeting();
       const personas = activePersonas(targeting);

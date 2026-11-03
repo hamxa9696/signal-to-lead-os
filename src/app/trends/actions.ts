@@ -7,6 +7,7 @@ import { themeStories, trendBoard } from "@/lib/trend-board";
 import { TREND_PERIODS, type TrendPeriod } from "@/lib/trends";
 import { weekOf } from "@/lib/week";
 import { plannedHubDate } from "@/lib/schedule";
+import { createStoryTopic, plannedFor, USE_KEYS, type StoryUse } from "@/lib/top-stories";
 
 const OUTLINES: Record<string, string[]> = {
   evergreen: ["結論：この質問への答え", "〜とは？基本と背景", "企業にとってのメリットと注意点", "費用・期間の目安", "選び方と比較のポイント", "よくある質問", "まとめ"],
@@ -59,4 +60,19 @@ export async function addThemeToPlan(form: FormData): Promise<void> {
   revalidatePath("/trends");
   revalidatePath("/topics");
   redirect(`/topics/${row.id}`);
+}
+
+/** Turn a news story into an approved topic for this week, in the chosen format. */
+export async function addStoryToPlan(form: FormData): Promise<void> {
+  const story = String(form.get("story") ?? "");
+  const use = String(form.get("use") ?? "") as StoryUse;
+  if (!/^[0-9a-f-]{36}$/.test(story) || !USE_KEYS.includes(use)) throw new Error("bad request");
+  const existing = await plannedFor(story);
+  if (existing) redirect(`/topics/${existing}`);
+  const id = await createStoryTopic(story, use, { status: "approved", origin: "story" });
+  await planFormats([id]).catch(() => null);
+  revalidatePath("/trends");
+  revalidatePath("/topics");
+  revalidatePath("/");
+  redirect(`/topics/${id}`);
 }
