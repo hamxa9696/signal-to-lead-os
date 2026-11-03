@@ -8,11 +8,14 @@ import { outcomes, leading } from "@/lib/geo/measure";
 import { SLOTS, type Slot } from "@/lib/formats";
 import { addDays, tokyoToday, weekOf } from "@/lib/week";
 import { PageHeader } from "./page-header";
+import { PostedToggle } from "./topics/posted-toggle";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
-type Task = { kind: "Decide" | "Write" | "Revise" | "Publish" | "Post" | "Check" | "Enter"; title: string; meta: string; href: string; action: string; urgent?: boolean };
+type Task = { kind: "Decide" | "Write" | "Revise" | "Publish" | "Post" | "Check" | "Enter"; title: string; meta: string; href: string; action: string; urgent?: boolean;
+  /** Show "Mark posted" for the main piece (channel null) or a spoke. */
+  mark?: { topicId: string; channel: string | null; label: string } };
 const KIND_COLOR: Record<Task["kind"], string> = { Decide: "#A65A44", Write: "#B0573D", Revise: "#B4432F", Publish: "#2F6B55", Post: "#3F6A7B", Check: "#7A4D6B", Enter: "#5E6B64" };
 const n = (v: number) => v.toLocaleString("en-US");
 const fmtDay = (d: string) => new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${d}T00:00:00Z`));
@@ -60,12 +63,12 @@ export default async function TodayPage() {
     const hoursLeft = t.deadline ? Math.round((new Date(t.deadline).getTime() - Date.now()) / 3_600_000) : null;
     const when = hoursLeft != null ? (hoursLeft > 0 ? `window closes in ${hoursLeft}h` : "window passed") : t.planned_date ? `planned ${fmtDay(t.planned_date)}` : "";
     const slot = t.slot ? SLOTS[t.slot].short : "Article";
-    if (!t.item) tasks.push({ kind: "Write", title: t.title_ja, meta: `${slot}${when ? ` · ${when}` : ""} · writing prompt ready`, href: `/topics/${t.id}`, action: "Open prompt", urgent: hoursLeft != null && hoursLeft > 0 && hoursLeft <= 48 });
-    else if (t.item === "needs_revision") tasks.push({ kind: "Revise", title: t.title_ja, meta: `${slot} · the review found issues; copy the revision prompt`, href: `/topics/${t.id}`, action: "Open review" });
-    else if (t.item === "ready") tasks.push({ kind: "Publish", title: t.title_ja, meta: `${slot} · review passed; send to Payload and publish`, href: `/topics/${t.id}`, action: "Publish" });
+    if (!t.item) tasks.push({ kind: "Write", title: t.title_ja, meta: `${slot}${when ? ` · ${when}` : ""} · writing prompt ready`, href: `/topics/${t.id}`, action: "Open prompt", urgent: hoursLeft != null && hoursLeft > 0 && hoursLeft <= 48, mark: { topicId: t.id, channel: null, label: slot } });
+    else if (t.item === "needs_revision") tasks.push({ kind: "Revise", title: t.title_ja, meta: `${slot} · the review found issues; copy the revision prompt`, href: `/topics/${t.id}`, action: "Open review", mark: { topicId: t.id, channel: null, label: slot } });
+    else if (t.item === "ready") tasks.push({ kind: "Publish", title: t.title_ja, meta: `${slot} · review passed; send to Payload and publish`, href: `/topics/${t.id}`, action: "Publish", mark: { topicId: t.id, channel: null, label: slot } });
   }
   for (const i of cal.items.filter((x) => x.kind === "spoke" && x.state === "due" && x.date <= today).slice(0, 4)) {
-    tasks.push({ kind: "Post", title: i.title, meta: `${i.label}${i.date < today ? ` · due ${fmtDay(i.date)}` : " · due today"}`, href: "/topics/calendar", action: "Copy & post" });
+    tasks.push({ kind: "Post", title: i.title, meta: `${i.label}${i.date < today ? ` · due ${fmtDay(i.date)}` : " · due today"}`, href: "/topics/calendar", action: "Copy & post", mark: { topicId: i.topicId, channel: i.channel, label: i.label } });
   }
   if (manual[0].questions && manual[0].done < manual[0].questions * 3) {
     tasks.push({ kind: "Check", title: `Weekly AI check: ${manual[0].questions} questions`, meta: `Ask ChatGPT, Gemini and Copilot · ${manual[0].done} of ${manual[0].questions * 3} answers marked · about 5 minutes`, href: "/trends/ai-search#manual-check", action: "Start check" });
@@ -135,12 +138,13 @@ export default async function TodayPage() {
         <p className="mt-0.5 text-[12.5px] text-faint">Only what needs a person, most urgent first.</p>
         <ul className="mt-2">
           {tasks.slice(0, 10).map((k, i) => (
-            <li key={i} className="flex flex-wrap items-center gap-3 border-t border-line py-3">
+            <li key={`${k.kind}:${k.title}:${i}`} className="flex flex-wrap items-center gap-3 border-t border-line py-3">
               <span className="w-[66px] shrink-0 rounded-full py-1 text-center text-[11px] font-bold text-white" style={{ background: KIND_COLOR[k.kind] }}>{k.kind}</span>
               <div className="min-w-0 flex-[1_1_280px]">
                 <p lang="ja" className="truncate font-semibold">{k.title}</p>
                 <p className={`text-[12px] ${k.urgent ? "font-semibold text-sprout" : "text-muted"}`}>{k.meta}</p>
               </div>
+              {k.mark && <PostedToggle key={`${k.mark.topicId}:${k.mark.channel}`} topicId={k.mark.topicId} channel={k.mark.channel} initial={false} label={k.mark.label} />}
               <Link href={k.href} prefetch={false} className="btn-primary shrink-0">{k.action}</Link>
             </li>
           ))}

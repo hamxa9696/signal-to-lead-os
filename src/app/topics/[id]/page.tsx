@@ -137,7 +137,7 @@ export default async function TopicWorkspace({ params }: { params: Promise<{ id:
           <SlotBadge slot={topic.slot} deadline={topic.slot === "fast_take" ? topic.deadline : null} />
         </div>
         <p className="mb-3 text-[13px] text-faint">One hub on renesistech.jp where traffic and leads land, plus the channels that send people to it. Each channel has a ready prompt with a tracked link.</p>
-        <ContentPackage t={{ ...topic, service: topic.service_name, persona: topic.persona?.name }} plan={topic.format_plan} scores={topic.format_scores} slot={topic.slot} hubUrl={topic.hub_url} posted={topic.posted} />
+        <ContentPackage t={{ ...topic, service: topic.service_name, persona: topic.persona?.name }} plan={topic.format_plan} scores={topic.format_scores} slot={topic.slot} hubUrl={topic.hub_url} posted={topic.posted} postUrls={topic.post_urls} hubPosted={topic.hub_posted} hubPostedUrl={topic.hub_posted_url} hubLive={pub?.status === "live" || item?.status === "published"} />
       </section>
 
       <ResearchPanel topicId={id} research={topic.research} />

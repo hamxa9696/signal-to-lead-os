@@ -50,6 +50,9 @@ type Topic = {
   deadline: Date | null;
   hub_url: string | null;
   posted: Record<string, string | null>;
+  post_urls: Record<string, string>;
+  hub_posted: string | null;
+  hub_posted_url: string | null;
   signals: { title: string; url: string | null; source: string; published: string | null; relevance: number | null; why: string | null; niche: string | null }[];
 };
 
@@ -124,8 +127,10 @@ export default async function TopicsPage({ searchParams }: { searchParams: Promi
              i.name as persona, sv.landing_url as service_url, t.week_of::text, ${authorSelect()} as author,
              t.slot, t.format_plan, t.format_scores, t.deadline,
              coalesce((select json_object_agg(channel, posted_at) from topic_spokes s where s.topic_id = t.id), '{}') as posted,
-             (select p.url from publications p join content_items c2 on c2.id = p.content_item_id
-               where c2.topic_id = t.id and p.channel = 'website' and p.status = 'live' limit 1) as hub_url,
+           coalesce((select json_object_agg(channel, post_url) from topic_spokes s where s.topic_id = t.id and s.post_url is not null), '{}') as post_urls,
+           t.posted_at::text as hub_posted, t.posted_url as hub_posted_url,
+             coalesce((select p.url from publications p join content_items c2 on c2.id = p.content_item_id
+               where c2.topic_id = t.id and p.channel = 'website' and p.status = 'live' limit 1), t.posted_url) as hub_url,
              coalesce((select json_agg(json_build_object(
                          'title', s.title, 'url', s.url, 'source', src.name,
                          'published', to_char(coalesce(s.published_at, s.fetched_at) at time zone 'Asia/Tokyo', 'DD Mon'),
@@ -485,6 +490,10 @@ function TopicDetails({ t }: { t: Topic }) {
           slot={t.slot}
           hubUrl={t.hub_url}
           posted={t.posted}
+          postUrls={t.post_urls}
+          hubPosted={t.hub_posted}
+          hubPostedUrl={t.hub_posted_url}
+          hubLive={t.item_status === "published"}
         />
       </section>
     </details>

@@ -29,6 +29,9 @@ export type TopicFull = {
   deadline: Date | null;
   hub_url: string | null;
   posted: Record<string, string | null>;
+  post_urls: Record<string, string>;
+  hub_posted: string | null;
+  hub_posted_url: string | null;
   author: Author | null;
   data_brief: string | null;
   persona: { name: string; description: string | null; pains: string | null; industries: string[] } | null;
@@ -41,8 +44,10 @@ export async function getTopic(id: string): Promise<TopicFull | null> {
     select t.id, t.kind, t.magnet_format, t.title_ja, t.title_en, t.primary_keyword, t.secondary_keywords,
            t.search_intent, t.rationale, t.outline, t.cta, t.status, t.week_of::text, t.origin, t.target_path, t.research, t.keyword_plan, t.slot, t.format_plan, t.format_scores, t.deadline, t.data_brief,
            coalesce((select json_object_agg(channel, posted_at) from topic_spokes s where s.topic_id = t.id), '{}') as posted,
-           (select p.url from publications p join content_items c2 on c2.id = p.content_item_id
-             where c2.topic_id = t.id and p.channel = 'website' and p.status = 'live' limit 1) as hub_url,
+           coalesce((select json_object_agg(channel, post_url) from topic_spokes s where s.topic_id = t.id and s.post_url is not null), '{}') as post_urls,
+           t.posted_at::text as hub_posted, t.posted_url as hub_posted_url,
+           coalesce((select p.url from publications p join content_items c2 on c2.id = p.content_item_id
+             where c2.topic_id = t.id and p.channel = 'website' and p.status = 'live' limit 1), t.posted_url) as hub_url,
            sv.name_ja as service_name, sv.landing_url as service_url, ${authorSelect()} as author,
            case when i.id is null then null
                 else json_build_object('name', i.name, 'description', i.description, 'pains', i.pains, 'industries', i.industries) end as persona,

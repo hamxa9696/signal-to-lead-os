@@ -29,16 +29,30 @@ export function SlotBadge({ slot, deadline }: { slot: Slot | null; deadline?: Da
 }
 
 /** Hub + spokes + scores for one topic, with a copyable prompt for each spoke. */
-export function ContentPackage({ t, plan, scores, slot, hubUrl, posted = {} }: {
+export function ContentPackage({ t, plan, scores, slot, hubUrl, posted = {}, postUrls = {}, hubPosted = null, hubPostedUrl = null, hubLive = false }: {
   posted?: Record<string, string | null>;
+  postUrls?: Record<string, string>;
+  /** Main piece marked as posted by hand (date), and its link. */
+  hubPosted?: string | null;
+  hubPostedUrl?: string | null;
+  /** Main piece is live on renesistech.jp through the Payload flow. */
+  hubLive?: boolean;
   t: PackageInput & { id: string };
   plan: FormatPlan | null;
   scores: FormatScores | null;
   slot: Slot | null;
   hubUrl: string | null;
 }) {
+  const hubToggle = hubLive
+    ? <span className="inline-flex items-center gap-1 rounded-md border border-good bg-good-soft px-2 py-0.5 text-[12px] font-semibold text-good">✓ Live on site</span>
+    : <PostedToggle topicId={t.id} channel={null} initial={!!hubPosted} initialUrl={hubPostedUrl} label="the main piece" />;
   if (!plan) {
-    return <p className="text-[13px] text-muted">No content package yet. It is planned with the Monday slate, or run &ldquo;Plan content formats&rdquo; on the Status page.</p>;
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="text-[13px] text-muted">No content package yet. It is planned with the Monday slate, or run &ldquo;Plan content formats&rdquo; on the Status page.</p>
+        <div className="flex flex-wrap items-center gap-2 text-[12.5px]"><span className="font-semibold">Main piece:</span> {hubToggle}</div>
+      </div>
+    );
   }
   const hubLabel = plan.hub === "lead_magnet" && plan.magnet_type ? `${HUBS.lead_magnet.label}: ${MAGNET_TYPES[plan.magnet_type].label}` : HUBS[plan.hub].label;
   return (
@@ -64,7 +78,8 @@ export function ContentPackage({ t, plan, scores, slot, hubUrl, posted = {} }: {
           <span className="rounded bg-ink px-1.5 py-0.5 text-[10.5px] font-semibold tracking-wider text-white">HUB</span>
           <span className="text-[13px] font-semibold">renesistech.jp · {hubLabel}</span>
           {slot && <span className="text-[12px] text-faint">{SLOTS[slot].what}</span>}
-          {hubUrl && <a href={hubUrl} target="_blank" rel="noreferrer" className="text-[12px] text-accent hover:underline">open ↗</a>}
+          {hubLive && hubUrl && <a href={hubUrl} target="_blank" rel="noreferrer" className="text-[12px] text-accent hover:underline">open ↗</a>}
+          <span className="ml-auto">{hubToggle}</span>
         </li>
         {plan.spokes.map((s) => (
           <li key={s.channel} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5">
@@ -72,7 +87,7 @@ export function ContentPackage({ t, plan, scores, slot, hubUrl, posted = {} }: {
             <span className="text-[13px] font-semibold">{CHANNELS[s.channel].formatLabel}</span>
             <span className="text-[12px] text-sprout">{s.timing}</span>
             <span className="min-w-0 flex-1 text-[12px] text-muted">{s.why}</span>
-            <PostedToggle topicId={t.id} channel={s.channel} initial={!!posted[s.channel]} />
+            <PostedToggle topicId={t.id} channel={s.channel} initial={!!posted[s.channel]} initialUrl={postUrls[s.channel] ?? null} label={`the ${CHANNELS[s.channel].formatLabel}`} />
             <CopyButton
               text={spokePrompt(s.channel, t, hubUrl)}
               label="⧉ Copy prompt"

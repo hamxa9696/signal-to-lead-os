@@ -8,12 +8,14 @@ export type CalItem = {
   key: string; topicId: string; kind: "hub" | "spoke"; channel: Channel | null; date: string;
   title: string; slot: Slot | null; color: string; label: string; timing: string; why: string;
   state: "live" | "planned" | "overdue" | "unapproved" | "posted" | "due" | "waiting"; hours: number; movable: boolean; deadline: string | null;
+  /** Marked as posted by hand (vs live through the Payload flow), and the post's link. */
+  posted: boolean; postUrl: string | null; viaSite: boolean;
 };
 
 type Row = {
   id: string; title_ja: string; slot: Slot | null; status: string; item_status: string | null; planned_date: string | null;
-  published: string | null; format_plan: FormatPlan | null; deadline: Date | null;
-  spokes: Record<string, { posted_at: string | null; planned_date: string | null }>;
+  published: string | null; posted_day: string | null; posted_url: string | null; format_plan: FormatPlan | null; deadline: Date | null;
+  spokes: Record<string, { posted_at: string | null; planned_date: string | null; post_url: string | null }>;
 };
 
 export async function calendarItems(start: string, end: string): Promise<{ items: CalItem[]; backlog: CalItem[] }> {
@@ -22,7 +24,8 @@ export async function calendarItems(start: string, end: string): Promise<{ items
     select t.id, t.title_ja, t.slot, t.status, ci.status as item_status, t.planned_date::text, t.format_plan, t.deadline,
            (select to_char(p.published_at at time zone 'Asia/Tokyo', 'YYYY-MM-DD') from publications p
              where p.content_item_id = ci.id and p.channel = 'website' and p.status = 'live' limit 1) as published,
-           coalesce((select json_object_agg(channel, json_build_object('posted_at', posted_at, 'planned_date', planned_date))
+           to_char(t.posted_at at time zone 'Asia/Tokyo', 'YYYY-MM-DD') as posted_day, t.posted_url,
+           coalesce((select json_object_agg(channel, json_build_object('posted_at', posted_at, 'planned_date', planned_date, 'post_url', post_url))
                      from topic_spokes s where s.topic_id = t.id), '{}') as spokes
     from topics t
     left join content_items ci on ci.topic_id = t.id and ci.parent_id is null
@@ -32,17 +35,19 @@ export async function calendarItems(start: string, end: string): Promise<{ items
   const backlog: CalItem[] = [];
   for (const t of rows) {
     const plan = t.format_plan;
-    const live = !!t.published || t.item_status === "published";
+    const viaSite = !!t.published || t.item_status === "published";
+    const live = viaSite || !!t.posted_day;
     const slot = t.slot;
     const color = slot ? SLOTS[slot].color : "#2F6B55";
     const hubHours = plan ? (plan.hub === "lead_magnet" && plan.magnet_type ? MAGNET_TYPES[plan.magnet_type].hours : HUBS[plan.hub].hours) : 3;
-    const hubDate = t.published ?? t.planned_date;
+    const hubDate = t.published ?? t.posted_day ?? t.planned_date;
     const hub: CalItem = {
       key: `${t.id}:hub`, topicId: t.id, kind: "hub", channel: null, date: hubDate ?? "", title: t.title_ja, slot, color,
       label: plan ? (plan.hub === "lead_magnet" && plan.magnet_type ? MAGNET_TYPES[plan.magnet_type].label : HUBS[plan.hub].label) : "Article",
       timing: slot ? SLOTS[slot].label : "", why: plan?.why ?? "",
       state: live ? "live" : t.status === "proposed" ? "unapproved" : hubDate && hubDate < today ? "overdue" : "planned",
       hours: hubHours, movable: !live, deadline: slot === "fast_take" && t.deadline ? new Date(t.deadline).toISOString() : null,
+      posted: !!t.posted_day, postUrl: t.posted_url, viaSite,
     };
     if (!hubDate) {
       if (t.status !== "proposed") backlog.push(hub);
@@ -58,6 +63,7 @@ export async function calendarItems(start: string, end: string): Promise<{ items
         label: CHANNELS[s.channel].formatLabel, timing: s.timing, why: s.why,
         state: posted ? "posted" : !live ? "waiting" : date < today ? "overdue" : "due",
         hours: CHANNELS[s.channel].hours, movable: !posted, deadline: null,
+        posted, postUrl: st?.post_url ?? null, viaSite: false,
       });
     }
   }

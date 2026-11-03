@@ -30,6 +30,13 @@ export function CalendarBoard(p: {
 }) {
   const [items, setItems] = useState(p.items);
   const [backlog, setBacklog] = useState(p.backlog);
+  // Take fresh server data (e.g. after "Mark posted") while keeping local drag & drop moves in between.
+  const [src, setSrc] = useState(p.items);
+  if (src !== p.items) {
+    setSrc(p.items);
+    setItems(p.items);
+    setBacklog(p.backlog);
+  }
   const [channels, setChannels] = useState<Set<string>>(new Set(CH.map((c) => c.k)));
   const [slots, setSlots] = useState<Set<string>>(new Set(SLOT_F.map((s) => s.k)));
   const [showUnapproved, setShowUnapproved] = useState(true);
@@ -240,7 +247,8 @@ export function CalendarBoard(p: {
               <div className="flex flex-wrap gap-2 border-t border-line pt-2.5">
                 <Link href={`/topics/${selected.topicId}`} className="btn-primary !min-h-8 !text-[12.5px]">Open topic</Link>
                 {selected.kind === "spoke" && p.prompts[selected.key] && <CopyButton text={p.prompts[selected.key]} label="⧉ Copy prompt" className="btn !min-h-8 !text-[12.5px]" />}
-                {selected.kind === "spoke" && selected.state !== "waiting" && <PostedToggle topicId={selected.topicId} channel={selected.channel!} initial={selected.state === "posted"} />}
+                {selected.kind === "spoke" && <PostedToggle key={selected.key} topicId={selected.topicId} channel={selected.channel!} initial={selected.posted} initialUrl={selected.postUrl} label={selected.label} />}
+                {selected.kind === "hub" && selected.state !== "unapproved" && !selected.viaSite && <PostedToggle key={selected.key} topicId={selected.topicId} channel={null} initial={selected.posted} initialUrl={selected.postUrl} label={selected.label} />}
               </div>
             </section>
           ) : null}
