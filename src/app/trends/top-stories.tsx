@@ -5,6 +5,10 @@ import { typeInfo } from "@/lib/signal-types";
 import { STORY_USES, USE_KEYS, type StoryUse, type TopStory } from "@/lib/top-stories";
 import { PendingButton } from "../pending-button";
 import { addStoryToPlan } from "./actions";
+import type { Why } from "@/lib/story-why";
+import { packageText } from "@/lib/story-why";
+import { CopyButton, SaveButton } from "../story-tools";
+import { WhyThis } from "./why-this";
 
 const PRIMARY = "min-h-8 rounded-[7px] bg-accent px-3 text-[12.5px] font-semibold text-white hover:bg-accent-ink";
 const SECONDARY = "min-h-8 rounded-[7px] border border-line-strong bg-surface px-3 text-[12.5px] text-body hover:bg-subtle";
@@ -15,14 +19,15 @@ export const ago = (d: Date) => {
 };
 
 /** The four ways to use a story; the best ones for its kind of news come first and the top one is highlighted. */
-export function StoryUseButtons({ storyId, uses, label = true }: { storyId: string; uses: StoryUse[]; label?: boolean }) {
+export function StoryUseButtons({ target, uses, label = true }: { target: { story?: string; signal?: string }; uses: StoryUse[]; label?: boolean }) {
   const order = [...uses, ...USE_KEYS.filter((k) => !uses.includes(k))];
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {label && <span className="mr-0.5 text-[11.5px] font-semibold text-faint">Use as</span>}
       {order.map((k, i) => (
         <form key={k} action={addStoryToPlan}>
-          <input type="hidden" name="story" value={storyId} />
+          {target.story && <input type="hidden" name="story" value={target.story} />}
+          {target.signal && <input type="hidden" name="signal" value={target.signal} />}
           <input type="hidden" name="use" value={k} />
           <PendingButton className={i === 0 ? PRIMARY : SECONDARY} pendingText="Planning…" ariaLabel={`Use as ${STORY_USES[k].label}: ${STORY_USES[k].sub}`}>
             {i === 0 ? "★ " : ""}{STORY_USES[k].label}
@@ -46,12 +51,15 @@ export function PlannedLink({ p }: { p: NonNullable<TopStory["planned"]> }) {
   );
 }
 
-export function TopStoriesSection({ stories }: { stories: TopStory[] }) {
+export function TopStoriesSection({ stories, whys, savedCount }: { stories: TopStory[]; whys: Map<string, Why>; savedCount: number }) {
   return (
     <section id="top-stories" aria-label="Top stories" className="card scroll-mt-4 p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-base font-semibold">Top stories · last 3 days</h2>
-        <Link href="/trends/signals" prefetch={false} className="text-[12.5px] font-semibold text-accent hover:underline">All stories →</Link>
+        <span className="flex gap-3 text-[12.5px] font-semibold">
+          <Link href="/trends/signals?saved=1" prefetch={false} className="text-accent hover:underline">★ Saved ({savedCount})</Link>
+          <Link href="/trends/signals" prefetch={false} className="text-accent hover:underline">All stories →</Link>
+        </span>
       </div>
       <p className="mt-0.5 text-[12.5px] text-faint">
         The strongest news right now, in any field. Pick how to use one and it goes into this week&apos;s plan with a writing prompt. ★ = the best fit for that kind of news.
@@ -85,7 +93,12 @@ export function TopStoriesSection({ stories }: { stories: TopStory[] }) {
                       </ul>
                     </details>
                   )}
-                  <div className="mt-2">{s.planned ? <PlannedLink p={s.planned} /> : <StoryUseButtons storyId={s.id} uses={s.uses} />}</div>
+                  <div className="mt-2">{s.planned ? <PlannedLink p={s.planned} /> : <StoryUseButtons target={{ story: s.id }} uses={s.uses} />}</div>
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    {whys.get(s.id) && <CopyButton text={packageText(whys.get(s.id)!)} />}
+                    <SaveButton kind="story" id={s.id} initial={s.saved} />
+                  </div>
+                  {whys.get(s.id) && <div className="mt-2"><WhyThis w={whys.get(s.id)!} /></div>}
                   {!s.planned && s.mentioned && (
                     <p className="mt-1 text-[11.5px] text-faint">
                       Cited as background in <Link href={`/topics/${s.mentioned.id}`} prefetch={false} lang="ja" className="underline">{s.mentioned.title}</Link>, not covered as its own piece.

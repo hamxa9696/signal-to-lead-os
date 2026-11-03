@@ -8,6 +8,7 @@ import { HoverCard } from "../hover-card";
 import { PendingButton } from "../pending-button";
 import { addThemeToPlan } from "./actions";
 import { topStories } from "@/lib/top-stories";
+import { whyFor } from "@/lib/story-why";
 import { TopStoriesSection } from "./top-stories";
 
 export const dynamic = "force-dynamic";
@@ -23,10 +24,13 @@ export default async function TrendsOverview({ searchParams }: { searchParams: P
   const q = await searchParams;
   const period = (TREND_PERIODS.find((p) => p.key === q.period)?.key ?? "7d") as TrendPeriod;
   const cat = q.cat && /^[a-z0-9-]{1,40}$/.test(q.cat) ? q.cat : undefined;
-  const [{ themes, gscOn, geoWeek }, cats, top] = await Promise.all([
+  const topQ = topStories({ hours: 72, limit: 6 });
+  const [{ themes, gscOn, geoWeek }, cats, top, whys, [{ n: savedCount }]] = await Promise.all([
     trendBoard(period, cat),
     sql<{ slug: string; name_en: string; color: string }[]>`select slug, name_en, color from categories where active order by sort`,
-    topStories({ hours: 72, limit: 6 }),
+    topQ,
+    topQ.then((t) => whyFor({ stories: t.map((x) => x.id) })),
+    sql<{ n: number }[]>`select ((select count(*) from stories where saved_at is not null) + (select count(*) from signals where saved_at is not null and story_id is null))::int as n`,
   ]);
   const sel = themes.find((t) => t.keyword === q.sel) ?? themes[0];
   const stories = sel ? await themeStories(sel.keyword, period) : [];
@@ -56,7 +60,7 @@ export default async function TrendsOverview({ searchParams }: { searchParams: P
         }
       />
 
-      <TopStoriesSection stories={top} />
+      <TopStoriesSection stories={top} whys={whys} savedCount={savedCount} />
 
       <h2 className="-mb-2 text-base font-semibold">Tracked themes</h2>
       <div className="flex flex-wrap items-center gap-1.5">

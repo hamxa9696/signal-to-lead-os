@@ -6,6 +6,9 @@ import { PageHeader } from "../../page-header";
 import { fmt, WhyPanel, type Row } from "./why-panel";
 import { StoriesList } from "./stories";
 import { SIGNAL_TYPES } from "@/lib/signal-types";
+import { whyFor } from "@/lib/story-why";
+import { usesFor } from "@/lib/top-stories";
+import { StoryToolbar } from "../why-this";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +21,7 @@ const TABS = [
 
 const UUID = /^[0-9a-f-]{36}$/;
 
-export default async function SignalsPage({ searchParams }: { searchParams: Promise<{ status?: string; cat?: string; sub?: string; q?: string; source?: string; type?: string; view?: string }> }) {
+export default async function SignalsPage({ searchParams }: { searchParams: Promise<{ status?: string; cat?: string; sub?: string; q?: string; source?: string; type?: string; view?: string; saved?: string }> }) {
   const q = await searchParams;
   const status = TABS.some((t) => t.key === q.status) ? q.status! : "analyzed";
   const unsorted = q.cat === "none";
@@ -36,6 +39,8 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
   const srcFilter = sourceName ? sql`and src.name = ${sourceName}` : sql``;
   const typeKey = SIGNAL_TYPES.some((t) => t.key === q.type) ? q.type! : null;
   const typeFilter = typeKey ? sql`and s.signal_type = ${typeKey}` : sql``;
+  const saved = q.saved === "1";
+  const savedFilter = saved ? sql`and (s.saved_at is not null or exists (select 1 from stories st where st.id = s.story_id and st.saved_at is not null))` : sql``;
   // Relevant signals are shown grouped into stories (same news, any outlet) unless "Articles" view is chosen.
   const storyView = status === "analyzed" && q.view !== "articles";
   const storyWhere = sql`
@@ -51,9 +56,10 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
         ? sql`and s.category_id is null`
         : sql``;
 
-  const [rows, counts, tree, tax, targeting] = await Promise.all([
-    sql<Row[]>`
-      select s.title, s.url, src.name as source, s.published_at, s.relevance::text,
+  const [rows, counts, tree, tax, targeting, [{ n: savedCount }]] = await Promise.all([
+    sql<(Row & { id: string; story_id: string | null; signal_type: string | null; saved: boolean })[]>`
+      select s.id, s.story_id, s.signal_type,
+             coalesce((select st.saved_at is not null from stories st where st.id = s.story_id), s.saved_at is not null) as saved, s.title, s.url, src.name as source, s.published_at, s.relevance::text,
              sv.name_ja as service, s.buyer_problem, s.analysis->>'angle' as angle, s.deep,
              coalesce(nullif(sc.name_ja, ''), sc.name_en) as sub,
              src.category as source_kind, src.url as source_url, s.summary, left(s.body, 6000) as body, s.status,
@@ -62,7 +68,7 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
       from signals s join sources src on src.id = s.source_id
       left join services sv on sv.id = s.service_id
       left join subcategories sc on sc.id = s.subcategory_id
-      where s.status = ${status} ${filter} ${kwFilter} ${srcFilter} ${typeFilter}
+      where s.status = ${status} ${filter} ${kwFilter} ${srcFilter} ${typeFilter} ${savedFilter}
       order by (s.deep is not null) desc, s.relevance desc nulls last, coalesce(s.published_at, s.fetched_at) desc
       limit 200`,
     sql<{ status: string; n: number }[]>`select status, count(*)::int as n from signals group by status`,
@@ -70,23 +76,37 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
       select category_id, subcategory_id, count(*)::int as n from signals where status = ${status} group by 1, 2`,
     loadTaxonomy(),
     loadTargeting(),
+    sql<{ n: number }[]>`select ((select count(*) from stories where saved_at is not null) + (select count(*) from signals where saved_at is not null and story_id is null))::int as n`,
   ]);
   const n = (k: string) => counts.find((c) => c.status === k)?.n ?? 0;
+  const articleWhys = !storyView && status === "analyzed" ? await whyFor({ signals: rows.map((r) => r.id) }) : new Map();
+  const articlePlans = !storyView && rows.length
+    ? await sql<{ id: string; topic: string; title: string; status: string }[]>`
+        select s.id, t.id as topic, t.title_ja as title, t.status from signals s
+        join topics t on t.status <> 'rejected' and (
+          (s.story_id is not null and t.story_id = s.story_id)
+          or exists (select 1 from topic_signals ts join signals x on x.id = ts.signal_id where ts.topic_id = t.id
+                     and (x.id = s.id or (s.story_id is not null and x.story_id = s.story_id)) and (t.slot = 'fast_take' or t.origin in ('story', 'breaking'))))
+        where s.id = any(${rows.map((r) => r.id)}::uuid[])`
+    : [];
+  const articlePlan = new Map(articlePlans.map((p) => [p.id, { id: p.topic, title: p.title, status: p.status }]));
   const total = tree.reduce((a, t) => a + t.n, 0);
   const inCat = (id: string) => tree.filter((t) => t.category_id === id).reduce((a, t) => a + t.n, 0);
   const inSub = (id: string) => tree.filter((t) => t.subcategory_id === id).reduce((a, t) => a + t.n, 0);
   const none = tree.filter((t) => !t.category_id).reduce((a, t) => a + t.n, 0);
-  const href = (p: { cat?: string; sub?: string; type?: string | null; view?: string }) =>
+  const href = (p: { cat?: string; sub?: string; type?: string | null; view?: string; saved?: boolean }) =>
     `/trends/signals?${new URLSearchParams({
       ...(status !== "analyzed" ? { status } : {}), ...(p.cat ? { cat: p.cat } : {}), ...(p.sub ? { sub: p.sub } : {}),
       ...((p.type === undefined ? typeKey : p.type) ? { type: (p.type === undefined ? typeKey : p.type)! } : {}),
       ...((p.view ?? q.view) === "articles" ? { view: "articles" } : {}),
+      ...((p.saved ?? saved) ? { saved: "1" } : {}),
     })}`;
 
   const selSub = tax.subcategories.find((x) => x.id === subId);
   const selCat = tax.categories.find((c) => c.id === (selSub?.category_id ?? catId));
   const selPersonas = (selSub?.persona_ids ?? []).map((id) => targeting.personas.find((p) => p.id === id)?.name).filter(Boolean);
-  const heading = selSub ? selSub.name_en : selCat ? selCat.name_en : unsorted ? "Not in any category" : "All signals";
+  const place = selSub ? selSub.name_en : selCat ? selCat.name_en : unsorted ? "Not in any category" : null;
+  const heading = saved ? `Saved for later${place ? ` · ${place}` : ""}` : place ?? "All signals";
 
   const node = (active: boolean) =>
     `flex items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-[13px] ${active ? "bg-surface font-semibold text-ink shadow-[0_1px_2px_rgba(16,24,40,0.06),0_0_0_1px_var(--color-line)]" : "text-muted hover:bg-subtle hover:text-ink"}`;
@@ -147,6 +167,12 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
                 <Link prefetch={false} href={href({ cat: q.cat, sub: q.sub, view: "articles" })} className={!storyView ? "seg-on" : "seg-item"}>Articles</Link>
               </nav>
             )}
+            {status === "analyzed" && (
+              <Link prefetch={false} href={href({ cat: q.cat, sub: q.sub, saved: !saved })} aria-pressed={saved}
+                className={`rounded-full border px-3 py-1 text-[12.5px] ${saved ? "border-accent bg-accent-soft font-semibold text-accent-ink" : "border-line-strong text-muted hover:text-ink"}`}>
+                {saved ? "★ Saved only · show all" : <>☆ Saved <span className="font-mono text-faint">{savedCount}</span></>}
+              </Link>
+            )}
             {selPersonas.length > 0 && <p lang="ja" className="text-[12.5px] text-muted">Readers: {selPersonas.join("、")}</p>}
           </div>
           {(kw || sourceName) && (
@@ -174,7 +200,7 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
             </p>
           )}
           <ul className="card divide-y divide-line">
-        {storyView && <StoriesList where={storyWhere} signalWhere={sql`${filter} ${kwFilter} ${srcFilter} ${typeFilter}`} personas={targeting.personas} />}
+        {storyView && <StoriesList where={storyWhere} signalWhere={sql`${filter} ${kwFilter} ${srcFilter} ${typeFilter}`} personas={targeting.personas} saved={saved} />}
         {!storyView && rows.map((r, i) => (
           <li key={i} className="px-5 py-4">
             <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs text-faint">
@@ -201,6 +227,10 @@ export default async function SignalsPage({ searchParams }: { searchParams: Prom
                 {r.deep.implication && <p className="mt-1 text-muted">→ {r.deep.implication}</p>}
                 {r.deep.questions?.length ? <p className="mt-1 text-faint">検索されそうな質問: {r.deep.questions.join(" / ")}</p> : null}
               </div>
+            )}
+            {status === "analyzed" && (
+              <StoryToolbar target={{ signal: r.id }} saveAs={r.story_id ? { kind: "story", id: r.story_id } : undefined} saved={r.saved} why={articleWhys.get(r.id)} planned={articlePlan.get(r.id) ?? null}
+                uses={usesFor(r.signal_type)} whyLabel={r.story_id ? "Why this article (with its story)" : "Why this article"} />
             )}
             <WhyPanel r={r} tax={tax} personas={targeting.personas} />
           </li>

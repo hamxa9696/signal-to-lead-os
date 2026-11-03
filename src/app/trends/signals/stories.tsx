@@ -7,12 +7,14 @@ import { HoverCard } from "../../hover-card";
 import { Rate } from "./rate";
 import { fmt, WhyPanel, type Row } from "./why-panel";
 import { usesFor } from "@/lib/top-stories";
-import { PlannedLink, StoryUseButtons } from "../top-stories";
+import { whyFor } from "@/lib/story-why";
+import { StoryToolbar } from "../why-this";
 
 type Story = {
   id: string; title: string; signal_type: string | null; articles: number; outlets: number; strength: number;
   strength_parts: StrengthParts | null; first_seen: Date; last_seen: Date; feedback: number | null; sub: string | null; cat: string | null; color: string | null;
   pending?: boolean; // not grouped yet: a single article shown as its own story
+  saved: boolean;
 };
 type Member = Row & { story_id: string; outlet: string | null; at: Date };
 
@@ -64,15 +66,15 @@ function StrengthBadge({ s }: { s: Story }) {
   );
 }
 
-export async function StoriesList({ where, signalWhere, personas }: { where: PendingQuery<PgRow[]>; signalWhere: PendingQuery<PgRow[]>; personas: { id: string; name: string }[] }) {
+export async function StoriesList({ where, signalWhere, personas, saved = false }: { where: PendingQuery<PgRow[]>; signalWhere: PendingQuery<PgRow[]>; personas: { id: string; name: string }[]; saved?: boolean }) {
   const [stories, tax] = await Promise.all([
     sql<Story[]>`
       select st.id, st.title, st.signal_type, st.articles, st.outlets, st.strength, st.strength_parts,
-             st.first_seen, st.last_seen, st.feedback, sc.name_en as sub, c.name_en as cat, c.color
+             st.first_seen, st.last_seen, st.feedback, sc.name_en as sub, c.name_en as cat, c.color, st.saved_at is not null as saved
       from stories st
       left join subcategories sc on sc.id = st.subcategory_id
       left join categories c on c.id = st.category_id
-      where st.last_seen >= now() - interval '21 days' ${where}
+      where ${saved ? sql`st.saved_at is not null` : sql`st.last_seen >= now() - interval '21 days'`} ${where}
       order by st.strength desc, st.last_seen desc
       limit 120`,
     loadTaxonomy(),
@@ -95,26 +97,26 @@ export async function StoriesList({ where, signalWhere, personas }: { where: Pen
     : [];
 
   // Relevant articles not grouped yet (grouping runs each morning) still show, as one-article stories.
-  const loose = await sql<(Member & { tier: string; signal_type: string | null; id: string })[]>`
+  const loose = await sql<(Member & { tier: string; signal_type: string | null; id: string; saved: boolean })[]>`
     select s.id, s.id as story_id, s.title, s.url, src.name as source, s.published_at, s.relevance::text,
            sv.name_ja as service, s.buyer_problem, s.analysis->>'angle' as angle, s.deep,
            coalesce(nullif(sc.name_ja, ''), sc.name_en) as sub,
            src.category as source_kind, src.url as source_url, s.summary, left(s.body, 6000) as body, s.status,
            s.analysis->>'why' as why, s.analysis->>'sort_why' as sort_why, s.analysis->>'sort_by' as sort_by,
            s.subcategory_id, s.category_id, s.analyzed_at, s.deep->>'persona' as persona_from_deep,
-           coalesce(s.outlet, src.name) as outlet, coalesce(s.published_at, s.fetched_at) as at, src.tier, s.signal_type
+           coalesce(s.outlet, src.name) as outlet, coalesce(s.published_at, s.fetched_at) as at, src.tier, s.signal_type, s.saved_at is not null as saved
     from signals s join sources src on src.id = s.source_id
     left join services sv on sv.id = s.service_id
     left join subcategories sc on sc.id = s.subcategory_id
     where s.status = 'analyzed' and s.story_id is null
-      and coalesce(s.published_at, s.fetched_at) >= now() - interval '21 days' ${signalWhere}
+      and ${saved ? sql`s.saved_at is not null` : sql`coalesce(s.published_at, s.fetched_at) >= now() - interval '21 days'`} ${signalWhere}
     order by s.relevance desc nulls last limit 120`;
   for (const l of loose) {
     const outlet = l.source_kind === "keyword_search" && l.title.lastIndexOf(" - ") > 0 ? l.title.slice(l.title.lastIndexOf(" - ") + 3) : l.outlet ?? l.source;
     const { total, parts } = storyStrength([{ relevance: Number(l.relevance ?? 0), outlet: outlet ?? "", tier: l.tier, at: new Date(l.at), deep: l.deep }]);
     stories.push({
       id: l.id, title: l.title, signal_type: l.signal_type, articles: 1, outlets: 1, strength: total, strength_parts: parts,
-      first_seen: l.at, last_seen: l.at, feedback: null, sub: l.sub, cat: null, color: null, pending: true,
+      first_seen: l.at, last_seen: l.at, feedback: null, sub: l.sub, cat: null, color: null, pending: true, saved: l.saved,
     });
     members.push(l);
   }
@@ -131,8 +133,9 @@ export async function StoriesList({ where, signalWhere, personas }: { where: Pen
         where s.story_id = any(${ids}::uuid[]) and t.status <> 'rejected' and t.slot = 'fast_take' and t.story_id is null`
     : [];
   const planned = new Map(plannedRows.map((r) => [r.k, r]));
+  const whys = await whyFor({ stories: stories.filter((x) => !x.pending).map((x) => x.id), signals: stories.filter((x) => x.pending).map((x) => x.id) });
 
-  if (!stories.length) return <li className="px-5 py-6 text-sm text-faint">No relevant news here in the last 21 days. Try another category or type, or &ldquo;All&rdquo;.</li>;
+  if (!stories.length) return <li className="px-5 py-6 text-sm text-faint">{saved ? "Nothing saved yet. Use ☆ Save for later on any story to keep it here." : <>No relevant news here in the last 21 days. Try another category or type, or &ldquo;All&rdquo;.</>}</li>;
   return (
     <>
       {stories.map((s) => {
@@ -185,16 +188,8 @@ export async function StoriesList({ where, signalWhere, personas }: { where: Pen
                   </ul>
                 </details>
               )}
-              {!s.pending && (planned.get(s.id)
-                ? <div className="mt-2"><PlannedLink p={planned.get(s.id)!} /></div>
-                : (
-                  <details className="group/plan mt-2">
-                    <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-[12.5px] font-semibold text-accent hover:underline">
-                      <span className="transition group-open/plan:rotate-90">›</span> Add to this week&apos;s plan
-                    </summary>
-                    <div className="mt-1.5"><StoryUseButtons storyId={s.id} uses={usesFor(s.signal_type)} /></div>
-                  </details>
-                ))}
+              <StoryToolbar target={s.pending ? { signal: s.id } : { story: s.id }} saved={s.saved} why={whys.get(s.id)}
+                planned={planned.get(s.id) ?? null} uses={usesFor(s.signal_type)} />
               {rep && <WhyPanel r={rep} tax={tax} personas={personas} />}
             </div>
           </li>

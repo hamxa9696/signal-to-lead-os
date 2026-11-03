@@ -46,7 +46,7 @@ export function WhyPanel({ r, tax, personas }: {
   return (
     <details className="group mt-2">
       <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-[12.5px] font-medium text-accent hover:underline">
-        <span className="transition group-open:rotate-90">›</span> Why this signal
+        <span className="transition group-open:rotate-90">›</span> How we found and sorted it
       </summary>
       <div className="mt-2 flex flex-col gap-2.5 rounded-lg border border-line bg-subtle/60 px-4 py-3 text-[13px]">
         <div className={row}>

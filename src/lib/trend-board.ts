@@ -23,9 +23,9 @@ export type Theme = {
   rec: Recommendation;
 };
 
-const tokensOf = (kw: string) => kw.toLowerCase().split(/[\s　]+/).filter(Boolean);
+export const tokensOf = (kw: string) => kw.toLowerCase().split(/[\s　]+/).filter(Boolean);
 /** Same rule as the keyword trends: every word must appear; Latin words match whole words only. */
-function matches(text: string, tokens: string[]): boolean {
+export function matches(text: string, tokens: string[]): boolean {
   const t = text.toLowerCase();
   return tokens.every((w) => (/^[a-z0-9]+$/.test(w) ? new RegExp(`(^|[^a-z0-9])${w}($|[^a-z0-9])`).test(t) : t.includes(w)));
 }

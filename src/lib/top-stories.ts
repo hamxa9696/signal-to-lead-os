@@ -38,7 +38,7 @@ export const usesFor = (type: string | null): StoryUse[] => BY_TYPE[type ?? ""] 
 
 export type TopStory = {
   id: string; title: string; type: string | null; strength: number; outlets: number; articles: number;
-  lastSeen: Date; category: string | null; color: string | null; url: string | null; outlet: string | null;
+  lastSeen: Date; saved: boolean; category: string | null; color: string | null; url: string | null; outlet: string | null;
   problem: string | null; uses: StoryUse[];
   planned: { id: string; title: string; status: string } | null; // a topic made from this story, or a fast take on it
   mentioned: { id: string; title: string } | null; // a topic that only cites one of its articles
@@ -53,11 +53,11 @@ const names = (t: string) => new Set((t.match(/[A-Za-z][A-Za-z0-9]{2,}/g) ?? [])
 export async function topStories(opts: { hours?: number; limit?: number; minStrength?: number } = {}): Promise<TopStory[]> {
   const hours = opts.hours ?? 72;
   const rows = await sql<{
-    id: string; title: string; signal_type: string | null; strength: number; outlets: number; articles: number; last_seen: Date;
+    id: string; title: string; signal_type: string | null; strength: number; outlets: number; articles: number; last_seen: Date; saved: boolean;
     cat: string | null; color: string | null; url: string | null; outlet: string | null; problem: string | null;
     topic_id: string | null; topic_title: string | null; topic_status: string | null; direct: boolean | null;
   }[]>`
-    select st.id, st.title, st.signal_type, st.strength, st.outlets, st.articles, st.last_seen,
+    select st.id, st.title, st.signal_type, st.strength, st.outlets, st.articles, st.last_seen, st.saved_at is not null as saved,
            c.name_en as cat, c.color, rep.url, rep.outlet, rep.buyer_problem as problem,
            pl.id as topic_id, pl.title_ja as topic_title, pl.status as topic_status, pl.direct
     from stories st
@@ -89,7 +89,7 @@ export async function topStories(opts: { hours?: number; limit?: number; minStre
       continue;
     }
     out.push({
-      id: r.id, title: r.title, type: r.signal_type, strength: r.strength, outlets: r.outlets, articles: r.articles, lastSeen: r.last_seen,
+      id: r.id, title: r.title, type: r.signal_type, strength: r.strength, outlets: r.outlets, articles: r.articles, lastSeen: r.last_seen, saved: r.saved,
       category: r.cat, color: r.color, url: r.url, outlet: r.outlet, problem: r.problem, uses: usesFor(r.signal_type),
       planned: r.topic_id && r.direct ? { id: r.topic_id, title: r.topic_title ?? "", status: r.topic_status ?? "" } : null,
       mentioned: r.topic_id && !r.direct ? { id: r.topic_id, title: r.topic_title ?? "" } : null,
@@ -99,8 +99,18 @@ export async function topStories(opts: { hours?: number; limit?: number; minStre
   return out.slice(0, opts.limit ?? 8).map(({ _names, ...s }) => s);
 }
 
-/** A topic already made from this story (or a fast take on it), if any. */
-export async function plannedFor(storyId: string): Promise<string | null> {
+/** A topic already made from this story or article (or a fast take on it), if any. */
+export async function plannedFor(src: { story?: string; signal?: string }): Promise<string | null> {
+  if (src.signal) {
+    const [sig] = await sql<{ story_id: string | null }[]>`select story_id from signals where id = ${src.signal}`;
+    if (sig?.story_id) return plannedFor({ story: sig.story_id });
+    const [t] = await sql<{ id: string }[]>`
+      select t.id from topics t join topic_signals ts on ts.topic_id = t.id
+      where ts.signal_id = ${src.signal} and t.status <> 'rejected' and (t.origin in ('story', 'breaking') or t.slot = 'fast_take')
+      order by t.created_at desc limit 1`;
+    return t?.id ?? null;
+  }
+  const storyId = src.story ?? "";
   const [t] = await sql<{ id: string }[]>`
     select t.id from topics t
     where t.status <> 'rejected' and (t.story_id = ${storyId} or (t.slot = 'fast_take' and exists (
@@ -136,16 +146,29 @@ const FALLBACK_OUTLINE: Record<StoryUse, string[]> = {
  * Turn a story into a topic for this week: Gemini writes the title, keyword, outline and CTA for
  * the chosen use, with a plain fallback if it is busy. Returns the new topic id.
  */
-export async function createStoryTopic(storyId: string, use: StoryUse, opts: { status: "approved" | "proposed"; origin: "story" | "breaking" }): Promise<string> {
-  const [story] = await sql<{ id: string; title: string; signal_type: string | null; strength: number; outlets: number; last_seen: Date; category_id: string | null }[]>`
-    select id, title, signal_type, strength, outlets, last_seen, category_id from stories where id = ${storyId}`;
+export async function createStoryTopic(src: { story?: string; signal?: string }, use: StoryUse, opts: { status: "approved" | "proposed"; origin: "story" | "breaking" }): Promise<string> {
+  // An article that belongs to a story is planned as its whole story.
+  let storyId: string | null = src.story ?? null;
+  let single: string | null = null;
+  if (!storyId && src.signal) {
+    const [sig] = await sql<{ story_id: string | null }[]>`select story_id from signals where id = ${src.signal}`;
+    if (!sig) throw new Error("article not found");
+    storyId = sig.story_id;
+    if (!storyId) single = src.signal;
+  }
+  const [story] = storyId
+    ? await sql<{ title: string; signal_type: string | null; strength: number; outlets: number; last_seen: Date }[]>`
+        select title, signal_type, strength, outlets, last_seen from stories where id = ${storyId}`
+    : await sql<{ title: string; signal_type: string | null; strength: number; outlets: number; last_seen: Date }[]>`
+        select title, signal_type, round(coalesce(relevance, 0) * 100)::int as strength, 1 as outlets,
+               coalesce(published_at, fetched_at) as last_seen from signals where id = ${single}`;
   if (!story) throw new Error("story not found");
   const arts = await sql<{ id: string; title: string; outlet: string | null; buyer_problem: string | null; angle: string | null; facts: string[] | null; service: string | null; published_at: Date | null }[]>`
     select s.id, s.title, coalesce(s.outlet, src.name) as outlet, s.buyer_problem, s.analysis->>'angle' as angle,
            case when jsonb_typeof(s.deep->'facts') = 'array' then (select array_agg(f) from jsonb_array_elements_text(s.deep->'facts') f) end as facts,
            sv.slug as service, s.published_at
     from signals s join sources src on src.id = s.source_id left join services sv on sv.id = s.service_id
-    where s.story_id = ${storyId} and s.status = 'analyzed'
+    where ${storyId ? sql`s.story_id = ${storyId}` : sql`s.id = ${single}`} and s.status = 'analyzed'
     order by s.relevance desc nulls last, s.published_at desc limit 6`;
 
   const u = STORY_USES[use];
@@ -194,7 +217,7 @@ export async function createStoryTopic(storyId: string, use: StoryUse, opts: { s
   const fit = Math.round(topic.fit * 3);
   const demand = Math.round(topic.demand_estimate * 2);
   const serviceId = (topic.service_slug && services.get(topic.service_slug)) || (svcFromArticles && services.get(svcFromArticles)) || null;
-  const why = `${opts.origin === "breaking" ? "Breaking story" : "From a top story"} (${story.outlets} outlets, strength ${story.strength}): ${story.title}. ${topic.rationale}`.trim();
+  const why = `${opts.origin === "breaking" ? "Breaking story" : storyId ? "From a top story" : "From an article"} (${story.outlets} outlet${story.outlets === 1 ? "" : "s"}, strength ${story.strength}): ${story.title}. ${topic.rationale}`.trim();
 
   const [row] = await sql<{ id: string }[]>`
     insert into topics (kind, magnet_format, title_ja, title_en, primary_keyword, secondary_keywords, search_intent, service_id, icp_id,

@@ -27,7 +27,7 @@ export const breakingStories: Job = {
     const pick = stories.find((s) => !s.planned && !rejected.has(s.id) && (s.strength >= 80 || s.outlets >= 5));
     if (!pick) return { status: "ok", stats: { week, checked: stories.length, proposed: 0 }, note: "no new big story" };
 
-    const id = await createStoryTopic(pick.id, pick.uses[0], { status: "proposed", origin: "breaking" });
+    const id = await createStoryTopic({ story: pick.id }, pick.uses[0], { status: "proposed", origin: "breaking" });
     await planFormats([id]).catch(() => null);
     return { status: "ok", stats: { week, checked: stories.length, proposed: 1, story: pick.title.slice(0, 80), strength: pick.strength, use: pick.uses[0] } };
   },

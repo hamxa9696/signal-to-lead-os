@@ -62,17 +62,30 @@ export async function addThemeToPlan(form: FormData): Promise<void> {
   redirect(`/topics/${row.id}`);
 }
 
-/** Turn a news story into an approved topic for this week, in the chosen format. */
+/** Turn a news story (or a single article) into an approved topic for this week, in the chosen format. */
 export async function addStoryToPlan(form: FormData): Promise<void> {
   const story = String(form.get("story") ?? "");
+  const signal = String(form.get("signal") ?? "");
   const use = String(form.get("use") ?? "") as StoryUse;
-  if (!/^[0-9a-f-]{36}$/.test(story) || !USE_KEYS.includes(use)) throw new Error("bad request");
-  const existing = await plannedFor(story);
+  const UUID = /^[0-9a-f-]{36}$/;
+  if (!(UUID.test(story) || UUID.test(signal)) || !USE_KEYS.includes(use)) throw new Error("bad request");
+  const src = UUID.test(story) ? { story } : { signal };
+  const existing = await plannedFor(src);
   if (existing) redirect(`/topics/${existing}`);
-  const id = await createStoryTopic(story, use, { status: "approved", origin: "story" });
+  const id = await createStoryTopic(src, use, { status: "approved", origin: "story" });
   await planFormats([id]).catch(() => null);
   revalidatePath("/trends");
   revalidatePath("/topics");
   revalidatePath("/");
   redirect(`/topics/${id}`);
+}
+
+/** Save (or unsave) a story or an article to decide on later. */
+export async function toggleSaved(kind: "story" | "signal", id: string, on: boolean): Promise<{ ok: boolean }> {
+  if (!/^[0-9a-f-]{36}$/.test(id)) return { ok: false };
+  const at = on ? sql`now()` : null;
+  const rows = kind === "story"
+    ? await sql`update stories set saved_at = ${at} where id = ${id} returning id`
+    : await sql`update signals set saved_at = ${at} where id = ${id} returning id`;
+  return { ok: rows.length > 0 };
 }
