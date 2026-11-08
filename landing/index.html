@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Kizashi reads the signals shaping your market, tells you what to publish, and tracks what actually brings traffic and leads — on free-tier automation.">
+<title>Kizashi — Catch the signal. Publish what wins.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./style.css">
+<script src="./app.js" defer></script>
+</head>
+<body>
+<div class="container">
+  <header class="nav">
+    <a class="brand" href="#top" aria-label="Kizashi home"><span class="brand-mark"><span></span></span><span>Kizashi<em>兆し</em></span></a>
+    <nav aria-label="Main navigation">
+      <a href="#how">How it works</a>
+      <a href="#signals">Signals</a>
+      <a href="#plan">Planning</a>
+      <a href="#results">Results</a>
+    </nav>
+    <a class="nav-button" href="https://signal-to-lead-os.vercel.app">Open Kizashi <span aria-hidden="true">↗</span></a>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="hero-copy">
+        <h1>Catch the signal.<br>Publish <em>what wins.</em></h1>
+        <p>Kizashi (兆し — an early sign of what's coming) reads the trends shaping your market, tells you what to write, and tracks what actually brings traffic and leads. Built for the Japanese market, on free-tier automation.</p>
+        <div class="hero-actions">
+          <a class="button" href="https://signal-to-lead-os.vercel.app">Open Kizashi <span aria-hidden="true">↗</span></a>
+          <a class="text-link" href="#how">See how it works</a>
+        </div>
+        <div class="hero-note"><span class="status-dot"></span> From signal to published piece to lead.</div>
+      </div>
+      <div class="hero-visual" aria-label="A snapshot of this week's signal board: scored themes and recommendations">
+        <div class="visual-heading"><span>SIGNAL BOARD</span><span>THIS WEEK</span></div>
+        <div class="kpi-row">
+          <div class="kpi"><small>SIGNALS</small><strong>42</strong></div>
+          <div class="kpi"><small>PLANNED</small><strong>6</strong></div>
+          <div class="kpi"><small>LEADS</small><strong>18</strong></div>
+        </div>
+        <div class="funnel">
+          <div class="funnel-row"><span>AI検索 / GEO</span><span class="funnel-bar won"><i style="width:92%"></i></span><b>92</b></div>
+          <div class="funnel-row"><span>生成AI導入</span><span class="funnel-bar"><i style="width:81%"></i></span><b>81</b></div>
+          <div class="funnel-row"><span>DX補助金</span><span class="funnel-bar"><i style="width:74%"></i></span><b>74</b></div>
+          <div class="funnel-row"><span>インバウンド</span><span class="funnel-bar"><i style="width:63%"></i></span><b>63</b></div>
+          <div class="funnel-row"><span>SaaS 事例</span><span class="funnel-bar"><i style="width:55%"></i></span><b>55</b></div>
+        </div>
+        <div class="visual-footer"><span><span class="status-dot"></span> Scored, ranked, recommended</span><span>Illustrative</span></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<section class="statement">
+  <div class="container statement-grid">
+    <h2>Content, led<br>by <em>evidence.</em></h2>
+    <p>Most content calendars are guesswork. Kizashi starts from real signals — what's rising in the news, in search, and in AI answers — scores each theme, and recommends what to publish. Every piece you write has a reason to exist, and a number to beat.</p>
+  </div>
+</section>
+
+<section class="section container" id="how">
+  <div class="section-heading">
+    <div><h2>One signal.<br>A clear next piece.</h2></div>
+    <p>Each stage flows into the next. Select a step to follow a trend from the moment it appears to the traffic and leads it earns.</p>
+  </div>
+  <div class="workflow" aria-label="Explore how Kizashi works">
+    <div class="workflow-nav" role="tablist" aria-label="Workflow stages">
+      <button class="flow-tab" role="tab" aria-selected="true" aria-controls="flow-panel" id="flow-tab-0" data-step="0"><span class="flow-node"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></span><strong>Spot</strong><small>See the rising signal</small></button>
+      <button class="flow-tab" role="tab" aria-selected="false" aria-controls="flow-panel" id="flow-tab-1" data-step="1"><span class="flow-node"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5Z"/><path d="M8 10h8M8 14h6"/></svg></span><strong>Plan</strong><small>Turn it into content</small></button>
+      <button class="flow-tab" role="tab" aria-selected="false" aria-controls="flow-panel" id="flow-tab-2" data-step="2"><span class="flow-node"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5 9-11"/></svg></span><strong>Publish</strong><small>Ship the piece</small></button>
+      <button class="flow-tab" role="tab" aria-selected="false" aria-controls="flow-panel" id="flow-tab-3" data-step="3"><span class="flow-node"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16M7 15V9m5 6V5m5 10v-4"/></svg></span><strong>Measure</strong><small>See what worked</small></button>
+    </div>
+    <div class="flow-panel" id="flow-panel" role="tabpanel" aria-labelledby="flow-tab-0" aria-live="polite">
+      <div>
+        <h3 id="flow-title">Spot the rising signal.</h3>
+        <p id="flow-copy">Kizashi watches news, search, and AI-answer trends, clusters them into themes, and scores each by momentum, opportunity, and the gap in what you've already published — then recommends the strongest.</p>
+      </div>
+      <div class="flow-result">
+        <span id="flow-label">TRENDS</span>
+        <strong id="flow-output">A ranked board of themes worth writing about this week.</strong>
+        <p id="flow-status">Scored on news, search, and AI-search signals, with a deterministic recommendation.</p>
+      </div>
+    </div>
+    <div class="flow-bottom">
+      <span id="flow-count">Step 1 of 4</span>
+      <div><button id="flow-prev" disabled>Previous</button><button id="flow-next">Next step <span aria-hidden="true">→</span></button></div>
+    </div>
+  </div>
+</section>
+
+<section class="section sources-section" id="signals">
+  <div class="container source-layout">
+    <div>
+      <h2>Signals from<br>everywhere<br>that matters.</h2>
+      <p class="section-copy">Kizashi doesn't guess what's trending — it listens across the channels your audience actually uses, then turns the noise into a ranked, actionable board.</p>
+      <a class="text-link" href="#board">See the board →</a>
+    </div>
+    <div class="sources-list">
+      <div class="source-row"><div class="source-number">01</div><div><h3>News &amp; PR</h3><p>RSS feeds and press releases (incl. PR TIMES) clustered into stories — surfacing what's breaking across your market before it peaks.</p></div><span>SIGNAL</span></div>
+      <div class="source-row"><div class="source-number">02</div><div><h3>Search &amp; Google</h3><p>Search Console and trend data show what people are actually looking for, and where you rank — so you write for real demand.</p></div><span>SIGNAL</span></div>
+      <div class="source-row"><div class="source-number">03</div><div><h3>AI search &amp; GEO</h3><p>Track how your topics show up in AI answers. Generative-engine visibility is the new front page — Kizashi keeps it in view.</p></div><span>SIGNAL</span></div>
+      <div class="source-row"><div class="source-number">+</div><div><h3>Your own performance</h3><p>GA4 feeds results back in, so the board learns which themes earned traffic and leads — and recommends more like them.</p></div><span>FEEDBACK</span></div>
+    </div>
+  </div>
+  <div class="container quota-note"><span class="quota-icon" aria-hidden="true">✓</span><p><strong>Runs itself, on free tiers.</strong> Collectors and analysis run on scheduled jobs with free-tier AI — a weekly shortlist and daily stories land without anyone kicking off a run.</p></div>
+</section>
+
+<section class="section container" id="board">
+  <div class="section-heading">
+    <div><h2>A board that<br>tells you what<br>to do.</h2></div>
+    <p>Not a dashboard to interpret — a ranked, scored view with a recommendation and a one-click "add to this week's plan."</p>
+  </div>
+  <div class="council-layout">
+    <div class="evidence-pane">
+      <div class="pane-title"><span>THIS WEEK'S BOARD</span><span class="sample-label">ILLUSTRATIVE</span></div>
+      <div class="metric-grid">
+        <div class="metric"><small>Themes tracked</small><strong>42</strong></div>
+        <div class="metric"><small>Top-story alerts</small><strong>3</strong></div>
+        <div class="metric"><small>Recommended</small><strong>6</strong></div>
+        <div class="metric"><small>Published</small><strong>11</strong></div>
+      </div>
+      <p class="quote-note">Each theme is scored on news, search, AI-search, and the gap in your own coverage — then ranked, with a plain recommendation for what to do next.</p>
+    </div>
+    <div class="council-pane">
+      <div class="pane-title"><span>WHAT'S INSIDE</span><span>ONE WORKSPACE</span></div>
+      <div class="model-row"><div><span class="model-mark">◎</span><strong>Today</strong><small>Your daily worklist</small></div><span>01</span></div>
+      <div class="model-row"><div><span class="model-mark">↗</span><strong>Trends</strong><small>Signals, AI-search, forecast</small></div><span>02</span></div>
+      <div class="model-row"><div><span class="model-mark">▤</span><strong>Plan</strong><small>Topics, calendar, packages</small></div><span>03</span></div>
+      <div class="model-row"><div><span class="model-mark">◴</span><strong>Results</strong><small>Performance &amp; GEO</small></div><span>04</span></div>
+      <div class="synthesis"><div><strong>Top stories</strong><p>Breaking stories are proposed automatically — story-first, so you plan around what's actually moving, not a stale keyword list.</p></div><span aria-hidden="true">↗</span></div>
+    </div>
+  </div>
+  <p class="section-note">Figures above are illustrative. In the app, every score is computed from live signal and performance data.</p>
+</section>
+
+<section class="section research-section" id="plan">
+  <div class="container">
+    <div class="section-heading">
+      <div><h2>From a theme<br>to a plan.</h2></div>
+      <p>A recommended theme becomes a complete content package — not a lonely blog post.</p>
+    </div>
+    <div class="research-shell">
+      <div class="research-intro">
+        <div><h3>One theme, many formats.</h3><p>Turn a signal into a content package: a hub piece plus spokes — a fast take, a case study, a white paper, a checklist. Each gets a prompt pack you can draft with, and a slot on the calendar.</p></div>
+        <span class="planned">IN THE APP</span>
+      </div>
+      <div class="brief-flow">
+        <div><small>THE SIGNAL</small><strong>A rising theme, scored</strong></div>
+        <span class="connector" aria-hidden="true">→</span>
+        <div><small>THE PACKAGE</small><strong>Hub + spokes, by format</strong></div>
+        <span class="connector" aria-hidden="true">→</span>
+        <div><small>THE CALENDAR</small><strong>Scheduled &amp; marked posted</strong></div>
+      </div>
+      <div class="matrix-heading">
+        <div><h3>Draft faster, stay on brand.</h3><p>Prompt packs, a fact sheet, and a style guide keep drafts accurate and consistent — with cross-model review before anything ships.</p></div>
+        <span>WORKFLOW</span>
+      </div>
+      <div class="engine-link">
+        <p>Kizashi feeds the Japanese site it was built for.</p>
+        <a class="text-link" href="https://renesistech.jp">renesistech.jp ↗</a>
+      </div>
+    </div>
+    <p class="section-note">Kizashi plans and measures content; a human writes and approves every piece before it's published.</p>
+  </div>
+</section>
+
+<section class="section container plan-section" id="results">
+  <div class="plan-intro">
+    <h2>Know what<br><em>actually worked.</em></h2>
+    <p>Traffic and leads, tied back to the signal that started each piece — so the board gets smarter every week.</p>
+  </div>
+  <div class="plan-path">
+    <div class="plan-row"><div class="plan-dot"></div><div><h3>Performance</h3><p>GA4 sessions and conversions per piece, scored against similar work, so you can tell a winner from a one-off.</p></div></div>
+    <div class="plan-row"><div class="plan-dot"></div><div><h3>GEO results</h3><p>See how your topics surface in AI answers — generative-engine visibility tracked alongside classic search.</p></div></div>
+    <div class="plan-row"><div class="plan-dot"></div><div><h3>Fix these</h3><p>A weekly shortlist of pieces to refresh or double down on, refreshed automatically — no manual review cycle.</p></div></div>
+    <div class="plan-row"><div class="plan-dot"></div><div><h3>Feed it back</h3><p>What performed teaches the board which themes to recommend next. The loop closes on its own.</p></div></div>
+  </div>
+</section>
+
+<section class="boundary">
+  <div class="container boundary-inner">
+    <div><h2>Lean by<br>design.</h2></div>
+    <div class="boundary-columns">
+      <div><span>FREE-TIER FIRST</span><h3>Automation that doesn't bill you.</h3><p>Collectors, analysis, and scheduled jobs run on free tiers — free AI for analysis, scheduled jobs for collection, a free database for production. No per-seat SaaS stack to assemble.</p></div>
+      <div><span>BUILT FOR JAPAN</span><h3>Tuned for the JA market.</h3><p>Japanese-language signals, a fact sheet and style guide for accuracy, and GEO built in — shaped around how this market actually searches and reads.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="closing">
+  <div class="container closing-inner">
+    <h2>See what's coming.<br><em>Publish first.</em></h2>
+    <a class="button" href="https://signal-to-lead-os.vercel.app">Open Kizashi <span aria-hidden="true">↗</span></a>
+  </div>
+</section>
+
+<footer class="container footer">
+  <a class="brand" href="#top"><span class="brand-mark"><span></span></span><span>Kizashi<em>兆し</em></span></a>
+  <span>From signal to published piece.</span>
+  <a href="#top">Back to top ↑</a>
+</footer>
+</body>
+</html>
